@@ -2,23 +2,32 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+
+    id("kotlin-kapt")
+
 }
 
 android {
-    namespace = "com.example.digitaljournal"
+    namespace = "com.example.digitaljourney"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.digitaljournal"
+        applicationId = "com.example.digitaljourney"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        manifestPlaceholders["appAuthRedirectScheme"] = "digitaljourney"
+
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -49,6 +58,34 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
+    //implementation("com.github.kotlin-inquirer:kotlin-inquirer:2.0.1") // Optional: for dialogs
+    implementation("net.openid:appauth:0.11.1") // Google AppAuth for Android OAuth2
+
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
+
+    // database
+    implementation("androidx.room:room-runtime:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    implementation("androidx.navigation:navigation-compose")
+
+    // Navigation for Compose
+    implementation("androidx.navigation:navigation-compose:2.7.5")
+
+    // Material3 (already in your project, but just in case)
+    implementation("androidx.compose.material3:material3:1.2.0")
+
+    implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

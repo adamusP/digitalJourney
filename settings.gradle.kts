@@ -19,5 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Digital Journal"
+rootProject.name = "Digital Journey"
 include(":app")
+ 

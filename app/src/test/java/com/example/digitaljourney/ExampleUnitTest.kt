@@ -1,4 +1,4 @@
-package com.example.digitaljournal
+package com.example.digitaljourney
 
 import org.junit.Test
 
