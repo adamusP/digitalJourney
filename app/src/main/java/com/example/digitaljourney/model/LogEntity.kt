@@ -11,13 +11,7 @@ import com.example.digitaljourney.data.PhotosRepositoryImpl
 import com.example.digitaljourney.data.SpotifyRepositoryImpl
 import com.example.digitaljourney.data.LocationRepositoryImpl
 import com.example.digitaljourney.data.LogSyncManager
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.tasks.Tasks
-import android.location.Geocoder
 
-import com.example.digitaljourney.data.TokenManager
-import com.example.digitaljourney.data.SpotifyAuthManager
 import com.example.digitaljourney.data.WeatherRepository
 
 // --- Room Entity ---
@@ -53,6 +47,9 @@ interface LogDao {
     LIMIT 1
 """)
     suspend fun getLastLogOfTypeToday(type: String, startOfDay: Long): LogEntity?
+
+    @Query("SELECT * FROM logs WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp ASC")
+    fun getLogsForRange(start: Long, end: Long): Flow<List<LogEntity>>
 }
 
 
@@ -79,7 +76,6 @@ abstract class AppDatabase : RoomDatabase() {
     }
 }
 
-
 // --- Background Worker ---
 class LogCollectorWorker(
     context: Context,
@@ -103,7 +99,5 @@ class LogCollectorWorker(
             android.util.Log.e("LogCollectorWorker", "Location fetch failed", e)
             Result.retry()
         }
-
     }
-
 }

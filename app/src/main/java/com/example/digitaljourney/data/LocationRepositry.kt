@@ -10,7 +10,6 @@ import com.example.digitaljourney.model.LogEntry
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.Tasks
 import java.util.Locale
-import android.location.Location
 import kotlin.math.*
 import java.time.LocalDate
 import java.time.ZoneId

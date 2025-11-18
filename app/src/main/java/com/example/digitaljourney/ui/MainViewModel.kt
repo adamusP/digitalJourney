@@ -1,29 +1,25 @@
 package com.example.digitaljourney.ui
 
-import android.app.Activity
+import com.example.digitaljourney.data.*
+import com.example.digitaljourney.model.*
+
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
-import com.example.digitaljourney.data.*
-import com.example.digitaljourney.model.*
+
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import androidx.compose.runtime.State
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    private val locationRepo: LocationRepository = LocationRepositoryImpl()
-    val lastLocation = mutableStateOf<LogEntry.LocationLog?>(null)
 
     private val photosRepo: PhotosRepository = PhotosRepositoryImpl()
-    val todayPhotos = mutableStateOf<List<LogEntry.PhotoLog>>(emptyList())
     val photosForDay = mutableStateOf<List<LogEntry.PhotoLog>>(emptyList())
-
-    private val spotifyRepo: SpotifyRepository = SpotifyRepositoryImpl()
-    val lastPlayedSong = mutableStateOf<String?>(null)
 
     private val _selectedMonth = mutableStateOf(LocalDate.now().withDayOfMonth(1))
     val selectedMonth: State<LocalDate> = _selectedMonth
@@ -48,33 +44,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadLogsForDate(_selectedDate.value) // load today initially
     }
 
-    fun loadLocation(activity: Activity) {
-        locationRepo.fetchLastKnownLocation(activity) { log ->
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                lastLocation.value = log
-            }
-        }
-    }
-
-    fun loadTodayPhotos(context: Context) {
-        todayPhotos.value = photosRepo.fetchTodayPhotos(context)
-    }
-
     fun loadPhotosForDate(context: Context, date: LocalDate) {
         photosForDay.value = photosRepo.fetchPhotosForDate(context, date)
-    }
-
-    fun fetchLastPlayedSongsToday(token: String) {
-        spotifyRepo.fetchTodayLogs(token) { logs ->
-            val result = if (logs.isNotEmpty()) {
-                "Played today:\n" + logs.joinToString("\n") { "${it.song} – ${it.artist}" }
-            } else {
-                "No songs played today."
-            }
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                lastPlayedSong.value = result
-            }
-        }
     }
 
     fun loadLogsForDate(date: LocalDate) {
@@ -107,6 +78,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun nextMonth() {
         _selectedMonth.value = _selectedMonth.value.plusMonths(1)
+    }
+
+
+
+    private val logDao = AppDatabase.getInstance(application).logDao()
+
+    val selectedMonthForGradient = mutableStateOf(LocalDate.now().withDayOfMonth(1))
+    val selectedFilter = mutableStateOf("Off")
+
+    // Observe logs for the entire month
+    fun getLogsForMonth(month: LocalDate): Flow<List<LogEntity>> {
+        val start = month.withDayOfMonth(1).atStartOfDay().toEpochSecond(ZoneOffset.UTC) * 1000
+        val end = month.plusMonths(1).withDayOfMonth(1).atStartOfDay().toEpochSecond(ZoneOffset.UTC) * 1000
+        return logDao.getLogsForRange(start, end)
     }
 
 }

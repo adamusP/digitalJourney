@@ -1,4 +1,3 @@
-// com/example/digitaljourney/model/LogEntry.kt
 package com.example.digitaljourney.model
 
 import android.net.Uri
@@ -24,6 +23,12 @@ sealed class LogEntry(val timestamp: Long) {
 
     data class MoodLog(
         val mood: String,
+        val time: Long
+    ) : LogEntry(time)
+
+    data class ChessLog(
+        val primaryText: String,
+        val secondaryText: String,
         val time: Long
     ) : LogEntry(time)
 }

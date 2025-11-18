@@ -5,7 +5,6 @@ import com.example.digitaljourney.model.AppDatabase
 import com.example.digitaljourney.model.LogEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.example.digitaljourney.data.TokenManager
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -21,7 +20,7 @@ class LogSyncManager(
 
     suspend fun syncNow() = withContext(Dispatchers.IO) {
 
-        // new location
+        // Location
         val log = locationRepo.fetchLastKnownLocationBlocking(context)
 
         if (log != null) {
@@ -87,6 +86,25 @@ class LogSyncManager(
                             type = "spotify",
                             data = log.song,
                             secondaryData = log.artist,
+                            timestamp = log.time
+                        )
+                    )
+                }
+            }
+        }
+
+        // Chess.com
+        val chessUsername = TokenManager.getChessUsername(context)
+        if (chessUsername != null) {
+            val chessLogs = ChessGameRepository().fetchRecentGames(chessUsername)
+            for (log in chessLogs) {
+                val alreadyExists = db.logDao().exists("chess", log.time) > 0
+                if (!alreadyExists) {
+                    db.logDao().insert(
+                        LogEntity(
+                            type = "chess",
+                            data = log.primaryText,
+                            secondaryData = log.secondaryText,
                             timestamp = log.time
                         )
                     )
