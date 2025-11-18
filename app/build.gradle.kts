@@ -81,10 +81,9 @@ dependencies {
     // Navigation for Compose
     implementation("androidx.navigation:navigation-compose:2.7.5")
 
-    // Material3 (already in your project, but just in case)
-    implementation("androidx.compose.material3:material3:1.2.0")
-
     implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
+
+    implementation("androidx.compose.material3:material3:1.3.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
