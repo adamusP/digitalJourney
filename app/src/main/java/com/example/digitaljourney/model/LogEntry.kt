@@ -21,6 +21,13 @@ sealed class LogEntry(val timestamp: Long) {
         val time: Long
     ) : LogEntry(time)
 
+    data class CallLog(
+        val duration: String,
+        val callType: String,
+        val number: String,
+        val time: Long
+    ) : LogEntry(time)
+
     data class MoodLog(
         val mood: String,
         val time: Long

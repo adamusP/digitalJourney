@@ -103,7 +103,7 @@ class MainActivity : ComponentActivity() {
 
                             bottomTabs.forEach { screen ->
                                 NavigationBarItem(
-                                    icon = { /* optional: Icon(...) */ },
+                                    icon = { },
                                     label = { Text(screen.title) },
                                     selected = currentRoute == screen.route,
                                     onClick = {
@@ -139,9 +139,16 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.Log.route) {
                             LogScreen()
                         }
-//                        composable(Screen.Stats.route) {
-//                            Text("Stats view")
-//                        }
+
+                        composable(Screen.Search.route) {
+                            SearchScreen(
+                                viewModel = viewModel,
+                                onResultClick = {
+                                    navController.navigate(Screen.Day.route)
+                                }
+                            )
+                        }
+
                         composable(Screen.Other.route) {
                             OtherScreen(
                                 onAuthenticate = { startSpotifyLogin() },
@@ -172,7 +179,7 @@ sealed class Screen(val route: String, val title: String) {
     object Day : Screen("day", "Day")
     object Month : Screen("month", "Month")
     object Log : Screen("log", "Log")
-    //object Stats : Screen("stats", "Stats")
+    object Search : Screen("search", "Search")
     object Other : Screen("other", "Other")
 }
 
@@ -180,6 +187,29 @@ val bottomTabs = listOf(
     Screen.Day,
     Screen.Month,
     Screen.Log,
-    //Screen.Stats,
+    Screen.Search,
     Screen.Other
 )
+
+
+// TODO
+//
+// implement video (now I only have photos)
+// google calendar, (tags/highlights maybe)
+// google maps sdk - map view
+// spotify token refresh fix
+// add day view filter (probably)
+// api tokens safety
+// implement search for calls as well
+// swipe gesture for month and day view (maybe)
+// add notifications for mood logging (once a day)
+// options - dark mode, logging on/off, mood notifications on/off
+// statistics in other view (probably not)
+// nicer ui - month view dropdown, paddings, navigation icons, log screen, fix screen fade
+// add app icon
+// background worker automatic start after phone restart (not sure if possible)
+// fix double location log
+// test with other devices
+// code review - remove deprecated functions, cleaner architecture
+// search filters, search highlighting (maybe)
+// naming locations (probably not)

@@ -14,17 +14,17 @@ import com.example.digitaljourney.data.LogSyncManager
 
 import com.example.digitaljourney.data.WeatherRepository
 
-// --- Room Entity ---
+// Room Entity
 @Entity(tableName = "logs")
 data class LogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val type: String,       // "spotify", "photo", "location", "mood"
-    val data: String,       // JSON payload or simplified string/JSON
-    val secondaryData: String,
-    val timestamp: Long
+    val type: String,       // "spotify", "photo", "location", "mood", etc.
+    val data: String,       // simple string with most important data
+    val secondaryData: String,  // data to specify log
+    val timestamp: Long     // time when event took place
 )
 
-// --- DAO ---
+// DAO
 @Dao
 interface LogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -50,10 +50,19 @@ interface LogDao {
 
     @Query("SELECT * FROM logs WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp ASC")
     fun getLogsForRange(start: Long, end: Long): Flow<List<LogEntity>>
+
+    @Query("""
+    SELECT * FROM logs
+    WHERE data LIKE '%' || :query || '%'
+       OR secondaryData LIKE '%' || :query || '%'
+    ORDER BY timestamp ASC
+""")
+    fun searchLogs(query: String): List<LogEntity>
+
 }
 
 
-// --- Database ---
+// Database
 @Database(entities = [LogEntity::class], version = 1)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun logDao(): LogDao
@@ -76,12 +85,13 @@ abstract class AppDatabase : RoomDatabase() {
     }
 }
 
-// --- Background Worker ---
+// Background Worker
 class LogCollectorWorker(
     context: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
+    // gets the most recent logs, meant to run in the background
     override suspend fun doWork(): Result {
         return try {
 
@@ -96,7 +106,7 @@ class LogCollectorWorker(
 
             Result.success()
         } catch (e: Exception) {
-            android.util.Log.e("LogCollectorWorker", "Location fetch failed", e)
+            android.util.Log.e("LogCollectorWorker", "Fetch failed", e)
             Result.retry()
         }
     }

@@ -40,6 +40,15 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+
+import android.content.pm.PackageManager
+
+
+// Screen with a list of all the logs in the selected date
 @Composable
 public fun LogListScreen(
     viewModel: MainViewModel,
@@ -49,8 +58,33 @@ public fun LogListScreen(
     val logs by viewModel.logsForDay.collectAsState()
     val selectedDate by viewModel.selectedDate
     val photos by viewModel.photosForDay
+    val calls by viewModel.callLogsForDay
 
-    // Fetch photos for *today* when screen opens
+
+    val callLogPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (granted) {
+                viewModel.loadCallLogsForDate(context, selectedDate)
+            }
+        }
+
+    // Fetch calls for the date when the screen opens
+    LaunchedEffect(Unit) {
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_CALL_LOG
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!granted) {
+            callLogPermissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+        } else {
+            viewModel.loadCallLogsForDate(context, selectedDate)
+        }
+    }
+
+    // Fetch photos for the date when screen opens
     LaunchedEffect(selectedDate) {
 
         val sync = LogSyncManager(
@@ -63,9 +97,11 @@ public fun LogListScreen(
         sync.syncNow()
 
         viewModel.loadPhotosForDate(context, selectedDate)
+        viewModel.loadCallLogsForDate(context, selectedDate)
     }
 
-    // Merge DB logs + photo logs
+
+    // Merge DB logs + photo logs + call logs
     val allLogs = remember(logs, photos) {
         val photoEntities = photos.map { log ->
             LogEntity(
@@ -76,13 +112,23 @@ public fun LogListScreen(
                 timestamp = log.timestamp
             )
         }
-        (logs + photoEntities).sortedBy { it.timestamp }
+        val callEntities = calls.map {log ->
+            LogEntity(
+                id = -1,
+                type = "call",
+                data = log.number.toString() + ", " + log.callType,
+                secondaryData = log.duration.toString(),
+                timestamp = log.timestamp
+            )
+        }
+        (logs + photoEntities + callEntities).sortedBy { it.timestamp }
     }
 
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
     Column(modifier = modifier.fillMaxWidth()
+        // attempt to have sweeping effect
 //        .pointerInput(Unit) {
 //        detectHorizontalDragGestures { _, dragAmount ->
 //            val threshold = 100f // swipe distance in pixels before it counts
@@ -94,7 +140,7 @@ public fun LogListScreen(
 //        }
 //    }
     ) {
-        // --- Header with arrows ---
+        // Header with arrows
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -124,7 +170,7 @@ public fun LogListScreen(
         }
 
         if (allLogs.isEmpty()) {
-            // --- Empty state ---
+            // Empty state
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -133,7 +179,7 @@ public fun LogListScreen(
                 Text("No activity for this day.")
             }
         } else {
-
+            // columns with the logs
             LazyColumn(modifier = modifier.fillMaxWidth()) {
                 items(allLogs) { log: LogEntity ->
                     val dt = Instant.ofEpochMilli(log.timestamp).atZone(ZoneId.systemDefault())
@@ -144,13 +190,13 @@ public fun LogListScreen(
                         // log content depending on type
                         when (log.type) {
                             "spotify" -> {
-                                Text("$time 🎵")
+                                Text("$time ${emojiFor(log.type)}")
                                 Text(log.data, fontWeight = FontWeight.SemiBold)
                                 Text(log.secondaryData)
                             }
 
                             "photo" -> {
-                                Text("$time 📸")
+                                Text("$time ${emojiFor(log.type)}")
                                 Image(
                                     painter = rememberAsyncImagePainter(Uri.parse(log.data)),
                                     contentDescription = null,
@@ -162,7 +208,7 @@ public fun LogListScreen(
                             }
 
                             "location" -> {
-                                Text("$time 📍")
+                                Text("$time ${emojiFor(log.type)}")
                                 Text(log.data, fontWeight = FontWeight.SemiBold)
                             }
 
@@ -171,19 +217,25 @@ public fun LogListScreen(
                                 Text(log.data, fontWeight = FontWeight.SemiBold)
                             }
 
+                            "call" -> {
+                                Text("$time ${emojiFor(log.type)}")
+                                Text(log.data, fontWeight = FontWeight.SemiBold)
+                                Text(log.secondaryData)
+                            }
+
                             "chess" -> {
-                                Text("$time ♟️")
+                                Text("$time ${emojiFor(log.type)}")
                                 Text(log.data, fontWeight = FontWeight.SemiBold)
                                 Text(log.secondaryData)
                             }
 
                             "text" -> {
-                                Text("$time ✍️")
+                                Text("$time ${emojiFor(log.type)}")
                                 Text(log.data, fontWeight = FontWeight.SemiBold)
                             }
 
                             "mood" -> {
-                                Text("$time 👤")
+                                Text("$time ${emojiFor(log.type)}")
                                 Text(log.data, fontSize = 45.sp)
                                 //Text(log.secondaryData)
                             }

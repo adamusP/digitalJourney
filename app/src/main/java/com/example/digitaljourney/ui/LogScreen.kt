@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.text.font.FontWeight
 
-
+// Screen with the buttons to log moods and a text field to log text
 @Composable
 fun LogScreen(
     modifier: Modifier = Modifier
@@ -26,7 +26,7 @@ fun LogScreen(
     var text by remember { mutableStateOf(TextFieldValue("")) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // Sample emoji data with description
+    // Emoji data with description
     val emojiList = listOf(
         EmojiItem("😄", "Joyful"),
         EmojiItem("😂", "Laughing"),
@@ -78,6 +78,7 @@ fun LogScreen(
 
         Text("Log your thoughs", fontSize = 35.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(8.dp))
 
+        // text input
         TextField(
             value = text,
             onValueChange = { text = it },
@@ -115,6 +116,7 @@ fun LogScreen(
     }
 }
 
+// helper class
 data class EmojiItem(val emoji: String, val description: String)
 @Composable
 fun EmojiButton(emojiItem: EmojiItem, onClick: () -> Unit) {

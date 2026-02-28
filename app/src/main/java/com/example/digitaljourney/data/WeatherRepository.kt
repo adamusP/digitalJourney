@@ -9,10 +9,7 @@ class WeatherRepository {
 
     private val client = OkHttpClient()
 
-    /**
-     * Fetches current weather using OpenWeatherMap API.
-     * returns Pair(description, emoji) or null if failed.
-     */
+    // Fetches current weather using OpenWeatherMap API, returns Pair(description, emoji) or null if failed.
     suspend fun fetchCurrentWeather(apiKey: String, lat: Double, lon: Double): Pair<String, String>? {
         val url =
             "https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric"
@@ -27,8 +24,7 @@ class WeatherRepository {
                 val json = response.body?.string() ?: return null
                 val obj = JSONObject(json)
 
-                val weatherDesc =
-                    obj.getJSONArray("weather").getJSONObject(0).getString("description")
+                val weatherDesc = obj.getJSONArray("weather").getJSONObject(0).getString("description")
                 val temp = obj.getJSONObject("main").getDouble("temp").toInt()
 
                 val sys = obj.getJSONObject("sys")
@@ -38,6 +34,7 @@ class WeatherRepository {
 
                 val isDay = now in sunrise..sunset
 
+                // map for weather emojis
                 val emoji = when {
                     weatherDesc.contains("clear", true) && isDay -> "☀️"
                     weatherDesc.contains("clear", true) && !isDay -> "🌙"

@@ -15,14 +15,42 @@ import java.time.ZoneOffset
 import androidx.compose.runtime.State
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import java.time.Instant
+import kotlinx.coroutines.Dispatchers
+
+enum class DayViewMode {
+    LIST,
+    MAP
+}
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+
 
     private val photosRepo: PhotosRepository = PhotosRepositoryImpl()
     val photosForDay = mutableStateOf<List<LogEntry.PhotoLog>>(emptyList())
 
+    private val callRepo: CallRepository = CallRepositoryImpl()
+    val callLogsForDay = mutableStateOf<List<LogEntry.CallLog>>(emptyList())
+
     private val _selectedMonth = mutableStateOf(LocalDate.now().withDayOfMonth(1))
     val selectedMonth: State<LocalDate> = _selectedMonth
+
+    private val _searchResults = mutableStateOf<List<LogEntity>>(emptyList())
+    val searchResults: State<List<LogEntity>> = _searchResults
+
+    fun search(query: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val results = db.logDao().searchLogs(query)
+            _searchResults.value = results
+        }
+    }
+    fun goToLogDay(timestamp: Long) {
+        val date = Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+
+        setDate(date)
+    }
 
     // database with application context
     private val db = androidx.room.Room.databaseBuilder(
@@ -46,6 +74,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadPhotosForDate(context: Context, date: LocalDate) {
         photosForDay.value = photosRepo.fetchPhotosForDate(context, date)
+    }
+
+    fun loadCallLogsForDate(context: Context, date: LocalDate) {
+        callLogsForDay.value = callRepo.fetchCallsForDate(context, date)
     }
 
     fun loadLogsForDate(date: LocalDate) {
@@ -95,3 +127,5 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 }
+
+

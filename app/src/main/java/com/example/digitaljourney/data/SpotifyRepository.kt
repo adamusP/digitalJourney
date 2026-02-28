@@ -25,6 +25,7 @@ interface SpotifyRepository {
 class SpotifyRepositoryImpl : SpotifyRepository {
     private val client = OkHttpClient()
 
+    // returns a list of all the logs for today
     override fun fetchTodayLogs(token: String, onResult: (List<LogEntry.SpotifyLog>) -> Unit) {
         val request = Request.Builder()
             .url("https://api.spotify.com/v1/me/player/recently-played?limit=50")

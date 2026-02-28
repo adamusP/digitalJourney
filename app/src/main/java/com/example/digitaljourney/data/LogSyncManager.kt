@@ -12,12 +12,14 @@ class LogSyncManager(
     private val context: Context,
     private val spotifyRepo: SpotifyRepository,
     private val photosRepo: PhotosRepository,
+    //private val callRepo: CallRepository,
     private val locationRepo: LocationRepository,
     private val weatherRepo: WeatherRepository
 
 ) {
     private val db = AppDatabase.getInstance(context)
 
+    // calls all the repositories for the current data
     suspend fun syncNow() = withContext(Dispatchers.IO) {
 
         // Location
@@ -65,6 +67,7 @@ class LogSyncManager(
                 }
             }
         }
+
 
         // Spotify
 

@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+// Screen with buttons for settings
 @Composable
 fun OtherScreen(
     onAuthenticate: () -> Unit,
@@ -40,6 +41,7 @@ fun OtherScreen(
             Text("Connect to Chess.com")
         }
 
+        // pop-up window for Chess.com username
         if (showDialog) {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showDialog = false },

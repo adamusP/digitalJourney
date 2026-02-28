@@ -1,5 +1,6 @@
 package com.example.digitaljourney.ui
 import com.example.digitaljourney.data.PhotosRepositoryImpl
+import com.example.digitaljourney.data.CallRepositoryImpl
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,13 +19,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.digitaljourney.data.CallRepository
 import com.example.digitaljourney.data.PhotosRepository
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-
+// Screen with the day grid for the selected month, with filters
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MonthScreen(
@@ -36,13 +38,13 @@ fun MonthScreen(
     val dateFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
 
     var expanded by remember { mutableStateOf(false) }
-    val filterOptions = listOf("Off", "All", "spotify", "photo", "location", "weather", "chess", "text", "mood")
+    val filterOptions = listOf("Off", "All", "spotify", "photo", "location", "weather", "call", "chess", "text", "mood")
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- Month header ---
+        // Month header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -61,7 +63,7 @@ fun MonthScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- Filter dropdown ---
+        // Filter dropdown
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.6f)
@@ -109,7 +111,7 @@ fun MonthScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- Weekday headers ---
+        // Weekday headers
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -126,7 +128,7 @@ fun MonthScreen(
             }
         }
 
-        // --- Grid of days ---
+        // Grid of days
         val daysInMonth = selectedMonth.lengthOfMonth()
         val firstDayOfWeek = selectedMonth.withDayOfMonth(1).dayOfWeek.value - 1
         val totalCells = daysInMonth + firstDayOfWeek
@@ -158,20 +160,24 @@ fun MonthScreen(
                             val dayDate = selectedMonth.withDayOfMonth(day)
                             val entries = logsByDay[dayDate].orEmpty()
 
+                            // gets the entries which we need to count in order to show filter
                             val filteredEntries = when (selectedFilter) {
                                 "Off" -> emptyList()
-                                "All" -> entries
+                                "All" -> entries +
+                                        PhotosRepositoryImpl().fetchPhotosForDate(LocalContext.current, dayDate) +
+                                        CallRepositoryImpl().fetchCallsForDate(LocalContext.current, dayDate)
                                 "photo" -> PhotosRepositoryImpl().fetchPhotosForDate(LocalContext.current, dayDate)
+                                "call" -> CallRepositoryImpl().fetchCallsForDate(LocalContext.current, dayDate)
                                 else -> entries.filter { it.type == selectedFilter }
                             }
 
                             val count = filteredEntries.size
-                            val intensity = count.coerceIn(0, 10) / 8f
+                            val intensity = count.coerceIn(0, 10) / 5f
                             val color = if (selectedFilter == "Off") {
                                 ButtonDefaults.buttonColors()
                             } else {
                                 val baseColor = Color(0xFF81C784)
-                                val blended = baseColor.copy(alpha = 0.3f + 0.7f * intensity)
+                                val blended = baseColor.copy(alpha = 0.3f + 0.7f * intensity)   // color fade
                                 ButtonDefaults.buttonColors(containerColor = blended)
                             }
 
@@ -198,6 +204,7 @@ fun MonthScreen(
 
         Spacer(modifier = Modifier.height(128.dp))
 
+        // Today button
         Button(
             onClick = {
                 val todayDate = LocalDate.now()

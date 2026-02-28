@@ -10,6 +10,7 @@ import java.util.Locale
 class ChessGameRepository {
     private val client = OkHttpClient()
 
+    // returns a list of all the games played in the last available date range (a month)
     fun fetchRecentGames(username: String): List<LogEntry.ChessLog> {
         val result = mutableListOf<LogEntry.ChessLog>()
         try {

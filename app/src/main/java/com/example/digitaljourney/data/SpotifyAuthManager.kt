@@ -27,6 +27,7 @@ object SpotifyAuthManager {
             .build()
     }
 
+    // requests a new token after the old one expires
     suspend fun refreshAccessToken(context: Context): String? {
         val refreshToken = TokenManager.getRefreshToken(context) ?: return null
 

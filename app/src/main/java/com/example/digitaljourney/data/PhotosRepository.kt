@@ -14,6 +14,7 @@ interface PhotosRepository {
 
 class PhotosRepositoryImpl : PhotosRepository {
 
+    // returns a list of all the logs of photos for the date
     override fun fetchPhotosForDate(context: Context, date: LocalDate): List<LogEntry.PhotoLog> {
         val logs = mutableListOf<LogEntry.PhotoLog>()
 
