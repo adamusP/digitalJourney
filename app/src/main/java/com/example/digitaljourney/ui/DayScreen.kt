@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
+import com.example.digitaljourney.ui.theme.Purple80
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
@@ -326,7 +327,7 @@ public fun LogListScreen(
                             Column(modifier = Modifier
                                 .fillMaxWidth()
                                 .background(
-                                    if (isHighlighted) Color(0xFFFFE0B2) else Color.Transparent
+                                    if (isHighlighted) Purple80 else Color.Transparent
                                 )
                                 .padding(horizontal = 8.dp, vertical = 8.dp)) {
                                 // log content depending on type

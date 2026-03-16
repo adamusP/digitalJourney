@@ -127,6 +127,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _selectedMonth.value = _selectedMonth.value.plusMonths(1)
     }
 
+    fun setMonth(newMonth: LocalDate) {
+        _selectedMonth.value = newMonth.withDayOfMonth(1)
+    }
+
     fun goToLogDay(timestamp: Long) {
         _highlightedLogTimestamp.value = timestamp
 

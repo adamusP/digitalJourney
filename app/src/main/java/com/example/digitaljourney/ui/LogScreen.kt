@@ -10,10 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.example.digitaljourney.model.AppDatabase
 import com.example.digitaljourney.model.LogEntity
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,20 +28,33 @@ fun LogScreen(
 ) {
     var text by remember { mutableStateOf(TextFieldValue("")) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    var showJournal by rememberSaveable { mutableStateOf(false) }
 
     // Emoji data with description
     val emojiList = listOf(
         EmojiItem("😄", "Joyful"),
         EmojiItem("😂", "Laughing"),
         EmojiItem("😊", "Happy"),
-        EmojiItem("😌", "Satisfied"),
+        EmojiItem("🙂", "Content"),
+        EmojiItem("😌", "Peaceful"),
+        EmojiItem("😎", "Confident"),
+        EmojiItem("😍", "Loving"),
+        EmojiItem("🥰", "Affectionate"),
+        EmojiItem("🤩", "Excited"),
+        EmojiItem("🤔", "Thoughtful"),
+        EmojiItem("🥱", "Sleepy"),
+        EmojiItem("😴", "Tired"),
+        EmojiItem("😮", "Surprised"),
+        EmojiItem("😐", "Neutral"),
         EmojiItem("😑", "Indifferent"),
+        EmojiItem("😕", "Confused"),
         EmojiItem("🙁", "Sad"),
         EmojiItem("😢", "Very sad"),
+        EmojiItem("😞", "Disappointed"),
+        EmojiItem("😟", "Worried"),
+        EmojiItem("😰", "Anxious"),
+        EmojiItem("😣", "Stressed"),
         EmojiItem("😒", "Annoyed"),
-        EmojiItem("😎", "Cool"),
-        EmojiItem("😍", "Love"),
-        EmojiItem("😮", "Surprised"),
         EmojiItem("😡", "Angry")
     )
 
@@ -52,81 +67,125 @@ fun LogScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                "Log your mood",
-                fontSize = 35.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(8.dp)
-            )
-
-            // Emoji Grid
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
             ) {
-                items(emojiList) { emoji ->
-                    EmojiButton(emoji) {
-                        // Log emoji click
-                        val input = emoji.emoji
-                        val description = emoji.description
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val db = AppDatabase.getInstance(context)
-                            db.logDao().insert(
-                                LogEntity(
-                                    type = "mood",
-                                    data = input,
-                                    secondaryData = description,
-                                    timestamp = System.currentTimeMillis()
-                                )
-                            )
-                        }
-                    }
+                SegmentedButton(
+                    selected = !showJournal,
+                    onClick = { showJournal = false },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = 0,
+                        count = 2
+                    ),
+                    icon = {}
+                ) {
+                    Text("Mood")
+                }
+
+                SegmentedButton(
+                    selected = showJournal,
+                    onClick = { showJournal = true },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = 1,
+                        count = 2
+                    ),
+                    icon = {}
+                ) {
+                    Text("Journal")
                 }
             }
 
-            Text(
-                "Log your thoughs",
-                fontSize = 35.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(8.dp)
-            )
+            if (!showJournal) {
 
-            // text input
-            TextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { Text("Write something...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-                    .height(200.dp)
-            )
+                Text(
+                    "How are you feeling?",
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(15.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
 
-            // Log button
-            Button(
-                onClick = {
-                    val input = text.text.trim()
-                    if (input.isNotEmpty()) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val db = AppDatabase.getInstance(context)
-                            db.logDao().insert(
-                                LogEntity(
-                                    type = "text",
-                                    data = input,
-                                    secondaryData = "",
-                                    timestamp = System.currentTimeMillis()
-                                )
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    itemsIndexed(emojiList) { index, emoji ->
+                        if (index == 11) {
+                            Spacer(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(100.dp)
                             )
                         }
-                        text = TextFieldValue("") // clear field
+
+                        EmojiButton(emoji) {
+                            val input = emoji.emoji
+                            val description = emoji.description
+                            CoroutineScope(Dispatchers.IO).launch {
+                                val db = AppDatabase.getInstance(context)
+                                db.logDao().insert(
+                                    LogEntity(
+                                        type = "mood",
+                                        data = input,
+                                        secondaryData = description,
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                )
+                            }
+                        }
                     }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Log")
+                }
+            } else {
+                Text(
+                    "What's on your mind?",
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(15.dp),
+                )
+
+                TextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = { Text("Write something...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .height(280.dp)
+                )
+
+                Button(
+                    onClick = {
+                        val input = text.text.trim()
+                        if (input.isNotEmpty()) {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                val db = AppDatabase.getInstance(context)
+                                db.logDao().insert(
+                                    LogEntity(
+                                        type = "text",
+                                        data = input,
+                                        secondaryData = "",
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                )
+                            }
+                            text = TextFieldValue("")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Log")
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+
         }
     }
 }
@@ -137,11 +196,12 @@ data class EmojiItem(val emoji: String, val description: String)
 fun EmojiButton(emojiItem: EmojiItem, onClick: () -> Unit) {
     Button(
         onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier
-            .padding(4.dp)
-            .height(48.dp),
-        content = {
-            Text(emojiItem.emoji, fontSize = 24.sp)
-        }
-    )
+            .padding(6.dp)
+            .size(64.dp),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Text(emojiItem.emoji, fontSize = 28.sp)
+    }
 }

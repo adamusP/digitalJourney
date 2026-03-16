@@ -1,5 +1,4 @@
 package com.example.digitaljourney.ui
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -24,12 +24,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+
 
 @Composable
 fun SettingsScreen(
     onAuthenticateSpotify: () -> Unit,
     onAuthenticateGoogle: () -> Unit,
     requestChessName: (String) -> Unit,
+    darkModeEnabled: Boolean,
+    onDarkModeChanged: (Boolean) -> Unit,
     notificationsEnabled: Boolean,
     onNotificationsChanged: (Boolean) -> Unit
 ) {
@@ -42,32 +48,30 @@ fun SettingsScreen(
     ) {
     Column(
         modifier = Modifier
-            .padding(16.dp)
+            .padding(30.dp)
             .fillMaxWidth(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(64.dp))
-
         Text(
             "Settings",
-            fontSize = 25.sp,
+            fontSize = 30.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(8.dp)
+            modifier = Modifier.padding(16.dp)
         )
 
         Spacer(modifier = Modifier.height(64.dp))
 
-        Button(onClick = onAuthenticateSpotify) {
-            Text("Connect to Spotify")
+        Button(onClick = onAuthenticateSpotify, modifier = Modifier.width(250.dp)) {
+            Text("Connect to Spotify ${emojiFor("spotify")}")
         }
 
-        Button(onClick = { showDialog = true }) {
-            Text("Connect to Chess.com")
+        Button(onClick = { showDialog = true }, modifier = Modifier.width(250.dp)) {
+            Text("Connect to Chess.com ${emojiFor("chess")}")
         }
 
-        Button(onClick = onAuthenticateGoogle) {
-            Text("Connect to Google Calendar")
+        Button(onClick = onAuthenticateGoogle, modifier = Modifier.width(250.dp)) {
+            Text("Connect to Google Calendar ${emojiFor("calendar")}")
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -81,6 +85,20 @@ fun SettingsScreen(
             Switch(
                 checked = notificationsEnabled,
                 onCheckedChange = onNotificationsChanged
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Dark mode")
+            Switch(
+                checked = darkModeEnabled,
+                onCheckedChange = onDarkModeChanged
             )
         }
 

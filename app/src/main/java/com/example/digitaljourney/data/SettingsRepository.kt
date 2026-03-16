@@ -13,4 +13,12 @@ class SettingsRepository(context: Context) {
     fun setNotificationsEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("notifications_enabled", enabled).apply()
     }
+
+    fun isDarkModeEnabled(): Boolean {
+        return prefs.getBoolean("dark_mode", false)
+    }
+
+    fun setDarkModeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("dark_mode", enabled).apply()
+    }
 }

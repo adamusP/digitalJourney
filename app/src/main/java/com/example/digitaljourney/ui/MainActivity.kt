@@ -23,6 +23,19 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.core.view.WindowCompat
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -47,6 +60,7 @@ import com.example.digitaljourney.data.SettingsRepository
 import com.example.digitaljourney.notifications.NotificationScheduler
 
 
+
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: MainViewModel
 
@@ -56,25 +70,32 @@ class MainActivity : ComponentActivity() {
     private val authLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val response = AuthorizationResponse.fromIntent(result.data!!)
-        val ex = AuthorizationException.fromIntent(result.data!!)
-        if (response != null) {
-            authService.performTokenRequest(
-                response.createTokenExchangeRequest()
-            ) { tokenResponse, tokenEx ->
-                if (tokenResponse?.accessToken != null) {
-                    TokenManager.saveSpotifyTokens(
-                        this,
-                        tokenResponse.accessToken!!,
-                        tokenResponse.refreshToken
-                    )
+        val data = result.data ?: run {
+            Log.e("SpotifyAuth", "Auth failed: result data was null")
+            return@registerForActivityResult
+        }
 
-                } else {
-                    Log.e("SpotifyAuth", "Token exchange failed: $tokenEx")
-                }
-            }
-        } else {
+        val response = AuthorizationResponse.fromIntent(data)
+        val ex = AuthorizationException.fromIntent(data)
+
+        if (response == null) {
             Log.e("SpotifyAuth", "Auth failed: $ex")
+            return@registerForActivityResult
+        }
+
+        authService.performTokenRequest(
+            response.createTokenExchangeRequest()
+        ) { tokenResponse, tokenEx ->
+            val accessToken = tokenResponse?.accessToken
+            if (accessToken != null) {
+                TokenManager.saveSpotifyTokens(
+                    this,
+                    accessToken,
+                    tokenResponse.refreshToken
+                )
+            } else {
+                Log.e("SpotifyAuth", "Token exchange failed: $tokenEx")
+            }
         }
     }
 
@@ -153,7 +174,20 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            DigitalJourneyTheme {
+            val context = LocalContext.current
+            val settingsRepository = remember { SettingsRepository(context) }
+            var darkModeEnabled by remember {
+                mutableStateOf(settingsRepository.isDarkModeEnabled())
+            }
+
+            // making system icons normal in dark mode
+            SideEffect {
+                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                insetsController.isAppearanceLightStatusBars = !darkModeEnabled
+                insetsController.isAppearanceLightNavigationBars = !darkModeEnabled
+            }
+
+            DigitalJourneyTheme(darkTheme = darkModeEnabled) {
                 val navController = rememberNavController()
 
                 fun navigateToTopLevel(route: String) {
@@ -176,14 +210,15 @@ class MainActivity : ComponentActivity() {
                     Screen.Day.route
                 }
 
-                val context = LocalContext.current
-                val settingsRepository = remember { SettingsRepository(context) }
+
 
                 var notificationsEnabled by remember {
                     mutableStateOf(settingsRepository.isNotificationsEnabled())
                 }
 
                 val openLogFromNotification by notificationOpenLogEvent
+
+
 
                 LaunchedEffect(openLogFromNotification) {
                     if (openLogFromNotification) {
@@ -193,15 +228,30 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
+
                     bottomBar = {
-                        NavigationBar {
-                            val navBackStackEntry by navController.currentBackStackEntryAsState()
-                            val currentRoute = navBackStackEntry?.destination?.route
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentRoute = navBackStackEntry?.destination?.route
 
-
+                        NavigationBar(
+                            modifier = Modifier
+                                .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 24.dp)
+                                .clip(RoundedCornerShape(28.dp)),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            tonalElevation = 8.dp,
+                            windowInsets = WindowInsets(0, 0, 0, 0)
+                        ) {
                             bottomTabs.forEach { screen ->
                                 NavigationBarItem(
-                                    icon = { },
+                                    icon = {
+                                        when (screen.route) {
+                                            Screen.Day.route -> Icon(Icons.Filled.WbSunny, contentDescription = "Day")
+                                            Screen.Month.route -> Icon(Icons.Filled.CalendarMonth, contentDescription = "Month")
+                                            Screen.Log.route -> Icon(Icons.Filled.EditNote, contentDescription = "Log")
+                                            Screen.Search.route -> Icon(Icons.Filled.Search, contentDescription = "Search")
+                                            Screen.Settings.route -> Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                                        }
+                                    },
                                     label = { Text(screen.title) },
                                     selected = currentRoute == screen.route,
                                     onClick = {
@@ -315,6 +365,11 @@ class MainActivity : ComponentActivity() {
                                 requestChessName = { username ->
                                     TokenManager.saveChessUsername(applicationContext, username)
                                 },
+                                darkModeEnabled = darkModeEnabled,
+                                onDarkModeChanged = { enabled ->
+                                    darkModeEnabled = enabled
+                                    settingsRepository.setDarkModeEnabled(enabled)
+                                },
                                 notificationsEnabled = notificationsEnabled,
                                 onNotificationsChanged = { enabled ->
                                     notificationsEnabled = enabled
@@ -415,18 +470,3 @@ val bottomTabs = listOf(
     Screen.Search,
     Screen.Settings
 )
-
-
-// TODO
-//
-// options - dark mode, logging on/off
-// nicer ui - month view dropdown, paddings, navigation icons, log screen
-// background worker automatic start after phone restart (not sure if possible)
-// test with other devices
-// code review - remove deprecated functions, cleaner architecture
-// fix performance (later)
-// swipe gesture for month and day view (maybe)
-// search filters, search highlighting (maybe)
-// ability to transfer to another device (probably not)
-// naming locations (probably not)
-// statistics in other view (probably not)
