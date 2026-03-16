@@ -9,14 +9,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.text.font.FontWeight
 import com.example.digitaljourney.model.AppDatabase
 import com.example.digitaljourney.model.LogEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.ui.text.font.FontWeight
+
 
 // Screen with the buttons to log moods and a text field to log text
 @Composable
@@ -42,77 +43,91 @@ fun LogScreen(
         EmojiItem("😡", "Angry")
     )
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Log your mood", fontSize = 35.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(8.dp))
+    Box(modifier = modifier.fillMaxSize()) {
 
-        // Emoji Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(4),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            items(emojiList) { emoji ->
-                EmojiButton(emoji) {
-                    // Log emoji click
-                    val input = emoji.emoji
-                    val description = emoji.description
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val db = AppDatabase.getInstance(context)
-                        db.logDao().insert(
-                            LogEntity(
-                                type = "mood",
-                                data = input,
-                                secondaryData = description,
-                                timestamp = System.currentTimeMillis()
+            Text(
+                "Log your mood",
+                fontSize = 35.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(8.dp)
+            )
+
+            // Emoji Grid
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+            ) {
+                items(emojiList) { emoji ->
+                    EmojiButton(emoji) {
+                        // Log emoji click
+                        val input = emoji.emoji
+                        val description = emoji.description
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val db = AppDatabase.getInstance(context)
+                            db.logDao().insert(
+                                LogEntity(
+                                    type = "mood",
+                                    data = input,
+                                    secondaryData = description,
+                                    timestamp = System.currentTimeMillis()
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
-        }
 
-        Text("Log your thoughs", fontSize = 35.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(8.dp))
+            Text(
+                "Log your thoughs",
+                fontSize = 35.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(8.dp)
+            )
 
-        // text input
-        TextField(
-            value = text,
-            onValueChange = { text = it },
-            placeholder = { Text("Write something...") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-                .height(200.dp)
-        )
+            // text input
+            TextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("Write something...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+                    .height(200.dp)
+            )
 
-        Button(
-            onClick = {
-                val input = text.text.trim()
-                if (input.isNotEmpty()) {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val db = AppDatabase.getInstance(context)
-                        db.logDao().insert(
-                            LogEntity(
-                                type = "text",
-                                data = input,
-                                secondaryData = "",
-                                timestamp = System.currentTimeMillis()
+            // Log button
+            Button(
+                onClick = {
+                    val input = text.text.trim()
+                    if (input.isNotEmpty()) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val db = AppDatabase.getInstance(context)
+                            db.logDao().insert(
+                                LogEntity(
+                                    type = "text",
+                                    data = input,
+                                    secondaryData = "",
+                                    timestamp = System.currentTimeMillis()
+                                )
                             )
-                        )
+                        }
+                        text = TextFieldValue("") // clear field
                     }
-                    text = TextFieldValue("") // clear field
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Add")
-        }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Log")
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
 

@@ -2,32 +2,29 @@ package com.example.digitaljourney.ui
 
 import com.example.digitaljourney.data.*
 import com.example.digitaljourney.model.*
+import com.example.digitaljourney.data.CallRepository
 
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
+import androidx.compose.runtime.State
+import androidx.lifecycle.viewModelScope
 
-import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
-import androidx.compose.runtime.State
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.launch
 import java.time.Instant
-import kotlinx.coroutines.Dispatchers
 
-enum class DayViewMode {
-    LIST,
-    MAP
-}
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-
     private val photosRepo: PhotosRepository = PhotosRepositoryImpl()
     val photosForDay = mutableStateOf<List<LogEntry.PhotoLog>>(emptyList())
+    val videosForDay = mutableStateOf<List<LogEntry.VideoLog>>(emptyList())
 
     private val callRepo: CallRepository = CallRepositoryImpl()
     val callLogsForDay = mutableStateOf<List<LogEntry.CallLog>>(emptyList())
@@ -37,20 +34,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _searchResults = mutableStateOf<List<LogEntity>>(emptyList())
     val searchResults: State<List<LogEntity>> = _searchResults
-
-    fun search(query: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val results = db.logDao().searchLogs(query)
-            _searchResults.value = results
-        }
-    }
-    fun goToLogDay(timestamp: Long) {
-        val date = Instant.ofEpochMilli(timestamp)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
-
-        setDate(date)
-    }
 
     // database with application context
     private val db = androidx.room.Room.databaseBuilder(
@@ -68,12 +51,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _logsForDay = kotlinx.coroutines.flow.MutableStateFlow<List<LogEntity>>(emptyList())
     val logsForDay: kotlinx.coroutines.flow.StateFlow<List<LogEntity>> = _logsForDay
 
+    private val _highlightedLogTimestamp = mutableStateOf<Long?>(null)
+    val highlightedLogTimestamp: State<Long?> = _highlightedLogTimestamp
+
+    private val logDao = AppDatabase.getInstance(application).logDao()
+
+    val selectedFilter = mutableStateOf("Off")
+
+
     init {
         loadLogsForDate(_selectedDate.value) // load today initially
     }
 
     fun loadPhotosForDate(context: Context, date: LocalDate) {
         photosForDay.value = photosRepo.fetchPhotosForDate(context, date)
+    }
+
+    fun loadVideosForDate(context: Context, date: LocalDate) {
+        videosForDay.value = photosRepo.fetchVideosForDate(context, date)
     }
 
     fun loadCallLogsForDate(context: Context, date: LocalDate) {
@@ -88,6 +83,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             db.logDao().getLogsForDay(startOfDay, endOfDay).collect { logs ->
                 _logsForDay.value = logs
             }
+        }
+    }
+
+    fun search(context: Context, query: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val dbResults = db.logDao().searchLogs(query)
+
+            val callResults = callRepo.searchCalls(context, query).map { call ->
+                LogEntity(
+                    timestamp = call.time,
+                    type = "call",
+                    data = "${call.number} ${call.callType} ${call.duration}",
+                    secondaryData = ""
+                )
+            }
+
+            val merged = (dbResults + callResults)
+                .sortedByDescending { it.timestamp }
+
+            _searchResults.value = merged
         }
     }
 
@@ -112,12 +127,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _selectedMonth.value = _selectedMonth.value.plusMonths(1)
     }
 
+    fun goToLogDay(timestamp: Long) {
+        _highlightedLogTimestamp.value = timestamp
 
+        val date = Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
 
-    private val logDao = AppDatabase.getInstance(application).logDao()
+        setDate(date)
+    }
 
-    val selectedMonthForGradient = mutableStateOf(LocalDate.now().withDayOfMonth(1))
-    val selectedFilter = mutableStateOf("Off")
+    fun clearHighlightedLog() {
+        _highlightedLogTimestamp.value = null
+    }
 
     // Observe logs for the entire month
     fun getLogsForMonth(month: LocalDate): Flow<List<LogEntity>> {

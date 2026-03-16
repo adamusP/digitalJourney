@@ -2,19 +2,17 @@ package com.example.digitaljourney.data
 
 import android.content.Context
 import android.provider.CallLog
-import android.util.Log
+import android.net.Uri
+import android.provider.ContactsContract
+
 import com.example.digitaljourney.model.LogEntry
 import java.time.LocalDate
 import java.time.ZoneId
 
-import android.net.Uri
-import android.provider.ContactsContract
-import okhttp3.internal.format
-
-
 interface CallRepository {
     fun fetchCallsForDate(context: Context, date: LocalDate): List<LogEntry.CallLog>
     fun getContactName(context: Context, phoneNumber: String?): String?
+    fun searchCalls(context: Context, query: String): List<LogEntry.CallLog>
 }
 
 class CallRepositoryImpl : CallRepository {
@@ -72,7 +70,7 @@ class CallRepositoryImpl : CallRepository {
 
     // gets the name of the contact based on the phone number
     override fun getContactName(context: Context, phoneNumber: String?): String? {
-        if (phoneNumber == null) return null
+        if (phoneNumber.isNullOrBlank()) return null
 
         val uri = Uri.withAppendedPath(
             ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
@@ -84,9 +82,12 @@ class CallRepositoryImpl : CallRepository {
         context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
                 val nameIndex = cursor.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME)
-                return cursor.getString(nameIndex)
+                if (nameIndex != -1) {
+                    return cursor.getString(nameIndex)
+                }
             }
         }
+
         return null
     }
 
@@ -121,6 +122,83 @@ class CallRepositoryImpl : CallRepository {
         val sec = remaining % 60
 
         return String.format("%d:%02d:%02d h", hours, mins, sec)
+    }
+
+    // searches all the logs in the last year based on a query
+    override fun searchCalls(context: Context, query: String): List<LogEntry.CallLog> {
+        val logs = mutableListOf<LogEntry.CallLog>()
+        val normalizedQuery = query.trim().lowercase()
+
+        if (normalizedQuery.isBlank()) return emptyList()
+
+        val projection = arrayOf(
+            CallLog.Calls.NUMBER,
+            CallLog.Calls.TYPE,
+            CallLog.Calls.DATE,
+            CallLog.Calls.DURATION
+        )
+
+        val daysBack = 365L
+        val cutoffMillis = System.currentTimeMillis() - daysBack * 24L * 60L * 60L * 1000L
+
+        val selection = "${CallLog.Calls.DATE} >= ?"
+        val selectionArgs = arrayOf(cutoffMillis.toString())
+        val sortOrder = "${CallLog.Calls.DATE} DESC"
+
+        context.contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            sortOrder
+        )?.use { cursor ->
+            val numberCol = cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+            val typeCol = cursor.getColumnIndexOrThrow(CallLog.Calls.TYPE)
+            val dateCol = cursor.getColumnIndexOrThrow(CallLog.Calls.DATE)
+            val durationCol = cursor.getColumnIndexOrThrow(CallLog.Calls.DURATION)
+
+            while (cursor.moveToNext()) {
+                val number = cursor.getString(numberCol)
+                if (number.isNullOrBlank()) continue
+
+                val type = cursor.getInt(typeCol)
+                val timestamp = cursor.getLong(dateCol)
+                val duration = cursor.getLong(durationCol)
+
+                val typeString = typeToString(type)
+                val durationString = formatSeconds(duration)
+
+                val matchesNumber = number.lowercase().contains(normalizedQuery)
+                val matchesType = typeString.lowercase().contains(normalizedQuery)
+                val matchesDuration = durationString.lowercase().contains(normalizedQuery)
+                val matchesCategory = "call".contains(normalizedQuery)
+
+                var contactName: String? = null
+                var matchesContact = false
+
+                if (!matchesNumber && !matchesType && !matchesDuration && !matchesCategory) {
+                    contactName = getContactName(context, number)
+                    matchesContact = contactName?.lowercase()?.contains(normalizedQuery) == true
+                }
+
+                if (matchesNumber || matchesType || matchesDuration || matchesCategory || matchesContact) {
+                    if (contactName == null) {
+                        contactName = getContactName(context, number)
+                    }
+
+                    logs.add(
+                        LogEntry.CallLog(
+                            number = contactName ?: number,
+                            callType = typeString,
+                            time = timestamp,
+                            duration = durationString
+                        )
+                    )
+                }
+            }
+        }
+
+        return logs
     }
 
 }

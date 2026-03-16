@@ -9,8 +9,8 @@ class WeatherRepository {
 
     private val client = OkHttpClient()
 
-    // Fetches current weather using OpenWeatherMap API, returns Pair(description, emoji) or null if failed.
-    suspend fun fetchCurrentWeather(apiKey: String, lat: Double, lon: Double): Pair<String, String>? {
+    // Fetches current weather using OpenWeatherMap API, returns Pair(description, emoji) or null if failed
+    fun fetchCurrentWeather(apiKey: String, lat: Double, lon: Double): Pair<String, String>? {
         val url =
             "https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric"
 

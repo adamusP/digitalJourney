@@ -1,6 +1,5 @@
 package com.example.digitaljourney.data
-
-import android.app.Activity
+import com.example.digitaljourney.model.AppDatabase
 import android.content.Context
 import android.location.Geocoder
 import android.Manifest
@@ -10,16 +9,12 @@ import com.example.digitaljourney.model.LogEntry
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.Tasks
 import java.util.Locale
-import kotlin.math.*
 import java.time.LocalDate
 import java.time.ZoneId
-import com.example.digitaljourney.model.AppDatabase
+import kotlin.math.*
+
 
 interface LocationRepository {
-    fun fetchLastKnownLocation(
-        activity: Activity,
-        onResult: (LogEntry.LocationLog?) -> Unit
-    )
 
     suspend fun fetchLastKnownLocationBlocking(
         context: Context
@@ -32,47 +27,6 @@ interface LocationRepository {
 }
 
 class LocationRepositoryImpl : LocationRepository {
-
-    override fun fetchLastKnownLocation(
-        activity: Activity,
-        onResult: (LogEntry.LocationLog?) -> Unit
-    ) {
-        if (ActivityCompat.checkSelfPermission(
-                activity,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                1001
-            )
-            onResult(null)
-            return
-        }
-
-        val fusedClient = LocationServices.getFusedLocationProviderClient(activity)
-        fusedClient.lastLocation.addOnSuccessListener { location ->
-            if (location != null) {
-                val geocoder = Geocoder(activity, Locale.getDefault())
-                val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-                val addressText = if (!addresses.isNullOrEmpty()) {
-                    addresses[0].getAddressLine(0)
-                } else null
-
-                onResult(
-                    LogEntry.LocationLog(
-                        lat = location.latitude,
-                        lon = location.longitude,
-                        address = addressText,
-                        time = System.currentTimeMillis()
-                    )
-                )
-            } else {
-                onResult(null)
-            }
-        }
-    }
 
     override suspend fun fetchLastKnownLocationBlocking(
         context: Context

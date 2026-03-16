@@ -1,9 +1,10 @@
 package com.example.digitaljourney.data
 
 import android.content.Context
-import net.openid.appauth.*
 import android.net.Uri
+import net.openid.appauth.*
 import kotlinx.coroutines.suspendCancellableCoroutine
+
 
 object SpotifyAuthManager {
     private const val CLIENT_ID = "b240fef49f7946efa918336ada7aabab"
@@ -31,6 +32,10 @@ object SpotifyAuthManager {
     suspend fun refreshAccessToken(context: Context): String? {
         val refreshToken = TokenManager.getRefreshToken(context) ?: return null
 
+        if (refreshToken == null) {
+            return null
+        }
+
         val serviceConfig = AuthorizationServiceConfiguration(
             Uri.parse(AUTH_URL),
             Uri.parse(TOKEN_URL)
@@ -49,8 +54,8 @@ object SpotifyAuthManager {
         return suspendCancellableCoroutine { cont ->
             authService.performTokenRequest(tokenRequest) { response, ex ->
                 if (response?.accessToken != null) {
-                    // Save new access token (and refresh if updated)
-                    TokenManager.saveTokens(
+                    // Save new access token, and refresh if updated
+                    TokenManager.saveSpotifyTokens(
                         context,
                         response.accessToken!!,
                         response.refreshToken ?: refreshToken

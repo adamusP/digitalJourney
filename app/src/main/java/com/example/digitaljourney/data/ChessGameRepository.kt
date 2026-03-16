@@ -35,6 +35,7 @@ class ChessGameRepository {
             val gamesJson = JSONObject(gamesResp.body?.string() ?: return emptyList())
             val games = gamesJson.getJSONArray("games")
 
+            // loop all games found
             for (i in 0 until games.length()) {
                 val game = games.getJSONObject(i)
                 val endTime = game.optLong("end_time", 0) * 1000

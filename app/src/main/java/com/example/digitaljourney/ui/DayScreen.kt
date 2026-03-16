@@ -1,6 +1,18 @@
 package com.example.digitaljourney.ui
 
+import com.example.digitaljourney.data.LocationRepositoryImpl
+import com.example.digitaljourney.data.LogSyncManager
+import com.example.digitaljourney.data.PhotosRepositoryImpl
+import com.example.digitaljourney.data.SpotifyRepositoryImpl
+import com.example.digitaljourney.data.WeatherRepository
+import com.example.digitaljourney.data.CalendarRepository
+import com.example.digitaljourney.model.LogEntity
+
 import android.net.Uri
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,23 +41,41 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import coil.compose.rememberAsyncImagePainter
-import com.example.digitaljourney.data.LocationRepositoryImpl
-import com.example.digitaljourney.data.LogSyncManager
-import com.example.digitaljourney.data.PhotosRepositoryImpl
-import com.example.digitaljourney.data.SpotifyRepositoryImpl
-import com.example.digitaljourney.data.WeatherRepository
-import com.example.digitaljourney.model.LogEntity
+
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
+import coil.request.ImageRequest
+import coil.decode.VideoFrameDecoder
+import coil.request.videoFrameMillis
 
-import android.content.pm.PackageManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 
 // Screen with a list of all the logs in the selected date
@@ -58,7 +88,45 @@ public fun LogListScreen(
     val logs by viewModel.logsForDay.collectAsState()
     val selectedDate by viewModel.selectedDate
     val photos by viewModel.photosForDay
+    val videos by viewModel.videosForDay
+
+    val highlightedTimestamp by viewModel.highlightedLogTimestamp
+    val listState = rememberLazyListState()
+
     val calls by viewModel.callLogsForDay
+    var showMap by rememberSaveable { mutableStateOf(false) }
+
+    val allTypes = listOf("spotify", "photo", "video", "location", "weather", "call", "calendar", "chess", "text", "mood")
+
+    var showFilters by rememberSaveable { mutableStateOf(false) }
+
+    val selectedTypes = remember {
+        mutableStateListOf(*allTypes.toTypedArray())
+    }
+
+    val syncManager = remember(context) {
+        LogSyncManager(
+            context,
+            SpotifyRepositoryImpl(),
+            PhotosRepositoryImpl(),
+            LocationRepositoryImpl(),
+            WeatherRepository(),
+            CalendarRepository
+        )
+    }
+
+    val scope = rememberCoroutineScope()
+    var isRefreshing by rememberSaveable { mutableStateOf(false) }
+
+    val mediaPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (granted) {
+                viewModel.loadPhotosForDate(context, selectedDate)
+                viewModel.loadVideosForDate(context, selectedDate)
+            }
+        }
 
 
     val callLogPermissionLauncher =
@@ -84,29 +152,51 @@ public fun LogListScreen(
         }
     }
 
+
+
     // Fetch photos for the date when screen opens
     LaunchedEffect(selectedDate) {
 
-        val sync = LogSyncManager(
-            context,
-            SpotifyRepositoryImpl(),
-            PhotosRepositoryImpl(),
-            LocationRepositoryImpl(),
-            WeatherRepository()
-        )
-        sync.syncNow()
+        syncManager.syncNow()       // sync the rest of the logs
 
-        viewModel.loadPhotosForDate(context, selectedDate)
+        val mediaPermission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_VIDEO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+
+        val mediaGranted = ContextCompat.checkSelfPermission(
+            context,
+            mediaPermission
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!mediaGranted) {
+            mediaPermissionLauncher.launch(mediaPermission)
+        } else {
+            viewModel.loadPhotosForDate(context, selectedDate)
+            viewModel.loadVideosForDate(context, selectedDate)
+        }
+
         viewModel.loadCallLogsForDate(context, selectedDate)
     }
 
 
-    // Merge DB logs + photo logs + call logs
-    val allLogs = remember(logs, photos) {
+    // Merge DB logs + photo/video logs + call logs
+    val allLogs = remember(logs, photos, videos, calls) {
         val photoEntities = photos.map { log ->
             LogEntity(
                 id = -1, // dummy id
                 type = "photo",
+                data = log.uri.toString(),
+                secondaryData = "",
+                timestamp = log.timestamp
+            )
+        }
+        val videoEntities = videos.map { log ->
+            LogEntity(
+                id = -1, // dummy id
+                type = "video",
                 data = log.uri.toString(),
                 secondaryData = "",
                 timestamp = log.timestamp
@@ -121,130 +211,303 @@ public fun LogListScreen(
                 timestamp = log.timestamp
             )
         }
-        (logs + photoEntities + callEntities).sortedBy { it.timestamp }
+        (logs + photoEntities + videoEntities + callEntities).sortedBy { it.timestamp }
+    }
+
+
+    val visibleLogs = remember(allLogs, selectedTypes.size) {
+        allLogs.filter { it.type in selectedTypes }
+    }
+
+    // highlight from search
+    LaunchedEffect(visibleLogs, highlightedTimestamp, showMap) {
+        if (!showMap && highlightedTimestamp != null) {
+            val index = visibleLogs.indexOfFirst { it.timestamp == highlightedTimestamp }
+            if (index != -1) {
+                listState.scrollToItem(index)
+
+                delay(3000)
+
+                viewModel.clearHighlightedLog()
+
+            }
+        }
     }
 
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
-    Column(modifier = modifier.fillMaxWidth()
-        // attempt to have sweeping effect
-//        .pointerInput(Unit) {
-//        detectHorizontalDragGestures { _, dragAmount ->
-//            val threshold = 100f // swipe distance in pixels before it counts
-//            if (dragAmount > threshold) {
-//                viewModel.previousDay()
-//            } else if (dragAmount < -threshold) {
-//                viewModel.nextDay()
-//            }
-//        }
-//    }
-    ) {
-        // Header with arrows
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = { viewModel.previousDay() },
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.KeyboardArrowLeft,
-                    contentDescription = "Previous month"
-                )
-            }
-            Text(selectedDate.format(dateFormatter), fontWeight = FontWeight.Bold)
-            IconButton(
-                onClick = { viewModel.nextDay() },
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.KeyboardArrowRight,
-                    contentDescription = "Previous month"
-                )
-            }
-        }
+    Box(modifier = modifier.fillMaxSize()) {
 
-        if (allLogs.isEmpty()) {
-            // Empty state
-            Column(
+        Column(
+            modifier = modifier.fillMaxWidth()
+        ) {
+            // Header with arrows
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("No activity for this day.")
-            }
-        } else {
-            // columns with the logs
-            LazyColumn(modifier = modifier.fillMaxWidth()) {
-                items(allLogs) { log: LogEntity ->
-                    val dt = Instant.ofEpochMilli(log.timestamp).atZone(ZoneId.systemDefault())
-                    val date = dt.format(dateFormatter)
-                    val time = dt.format(timeFormatter)
-
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        // log content depending on type
-                        when (log.type) {
-                            "spotify" -> {
-                                Text("$time ${emojiFor(log.type)}")
-                                Text(log.data, fontWeight = FontWeight.SemiBold)
-                                Text(log.secondaryData)
-                            }
-
-                            "photo" -> {
-                                Text("$time ${emojiFor(log.type)}")
-                                Image(
-                                    painter = rememberAsyncImagePainter(Uri.parse(log.data)),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .padding(top = 4.dp)
-                                        .height(250.dp)
-                                )
-                            }
-
-                            "location" -> {
-                                Text("$time ${emojiFor(log.type)}")
-                                Text(log.data, fontWeight = FontWeight.SemiBold)
-                            }
-
-                            "weather" -> {
-                                Text("$time ${log.secondaryData}")
-                                Text(log.data, fontWeight = FontWeight.SemiBold)
-                            }
-
-                            "call" -> {
-                                Text("$time ${emojiFor(log.type)}")
-                                Text(log.data, fontWeight = FontWeight.SemiBold)
-                                Text(log.secondaryData)
-                            }
-
-                            "chess" -> {
-                                Text("$time ${emojiFor(log.type)}")
-                                Text(log.data, fontWeight = FontWeight.SemiBold)
-                                Text(log.secondaryData)
-                            }
-
-                            "text" -> {
-                                Text("$time ${emojiFor(log.type)}")
-                                Text(log.data, fontWeight = FontWeight.SemiBold)
-                            }
-
-                            "mood" -> {
-                                Text("$time ${emojiFor(log.type)}")
-                                Text(log.data, fontSize = 45.sp)
-                                //Text(log.secondaryData)
-                            }
-
-                            else -> Text(log.data)
-                        }
-                    }
+                IconButton(
+                    onClick = { viewModel.previousDay() },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowLeft,
+                        contentDescription = "Previous month"
+                    )
+                }
+                Text(selectedDate.format(dateFormatter), fontWeight = FontWeight.Bold)
+                IconButton(
+                    onClick = { viewModel.nextDay() },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowRight,
+                        contentDescription = "Previous month"
+                    )
                 }
             }
+
+            // Toggle between view modes
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                SegmentedButton(
+                    selected = !showMap,
+                    onClick = { showMap = false },
+                    shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(
+                        index = 0,
+                        count = 2
+                    ),
+                    icon = {}
+                ) {
+                    Text("List")
+                }
+
+                SegmentedButton(
+                    selected = showMap,
+                    onClick = { showMap = true },
+                    shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(
+                        index = 1,
+                        count = 2
+                    ),
+                    icon = {}
+                ) {
+                    Text("Map")
+                }
+            }
+
+            if (visibleLogs.isEmpty()) {
+                // Empty state
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                ) {
+                    Text("No activity for this day.")
+                }
+            } else {
+                if (!showMap) {
+                    // columns with the logs
+                    LazyColumn(state = listState, modifier = modifier.fillMaxWidth()) {
+                        items(visibleLogs) { log: LogEntity ->
+                            val isHighlighted = log.timestamp == highlightedTimestamp
+
+                            val dt =
+                                Instant.ofEpochMilli(log.timestamp).atZone(ZoneId.systemDefault())
+                            val date = dt.format(dateFormatter)
+                            val time = dt.format(timeFormatter)
+
+                            Column(modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (isHighlighted) Color(0xFFFFE0B2) else Color.Transparent
+                                )
+                                .padding(horizontal = 8.dp, vertical = 8.dp)) {
+                                // log content depending on type
+                                when (log.type) {
+                                    "spotify" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Text(log.data, fontWeight = FontWeight.SemiBold)
+                                        Text(log.secondaryData)
+                                    }
+
+                                    "photo" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Image(
+                                            painter = rememberAsyncImagePainter(Uri.parse(log.data)),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .padding(top = 4.dp)
+                                                .height(250.dp)
+                                        )
+                                    }
+
+                                    "video" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+
+                                        val painter = rememberAsyncImagePainter(
+                                            model = ImageRequest.Builder(context)
+                                                .data(Uri.parse(log.data))
+                                                .decoderFactory(VideoFrameDecoder.Factory())
+                                                .videoFrameMillis(1000)
+                                                .build()
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(top = 4.dp)
+                                                .wrapContentWidth()
+                                        ) {
+                                            Image(
+                                                painter = painter,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.height(250.dp)
+                                            )
+
+                                            Icon(
+                                                imageVector = Icons.Filled.PlayArrow,
+                                                contentDescription = "Video",
+                                                tint = Color.White,
+                                                modifier = Modifier
+                                                    .align(Alignment.Center)
+                                                    .size(56.dp)
+                                            )
+                                        }
+                                    }
+
+                                    "location" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Text(log.data, fontWeight = FontWeight.SemiBold)
+                                    }
+
+                                    "weather" -> {
+                                        Text("$time ${log.secondaryData}")
+                                        Text(log.data, fontWeight = FontWeight.SemiBold)
+                                    }
+
+                                    "call" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Text(log.data, fontWeight = FontWeight.SemiBold)
+                                        Text(log.secondaryData)
+                                    }
+
+                                    "calendar" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Text(log.data, fontWeight = FontWeight.SemiBold)
+                                        Text(log.secondaryData)
+                                    }
+
+                                    "chess" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Text(log.data, fontWeight = FontWeight.SemiBold)
+                                        Text(log.secondaryData)
+                                    }
+
+                                    "text" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Text(log.data, fontWeight = FontWeight.SemiBold)
+                                    }
+
+                                    "mood" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Text(log.data, fontSize = 45.sp)
+                                    }
+
+                                    else -> Text(log.data)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    MapView(allLogs = visibleLogs, modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
+        FloatingActionButton(
+            onClick = { showFilters = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 8.dp, bottom = 8.dp)
+                .width(90.dp)
+        ) {
+            Text("Filters")
+        }
+
+        FloatingActionButton(
+            onClick = {
+                scope.launch {
+                    isRefreshing = true
+                    try {
+                        syncManager.syncNow()
+                        viewModel.loadLogsForDate(selectedDate)
+                        viewModel.loadPhotosForDate(context, selectedDate)
+                        viewModel.loadVideosForDate(context, selectedDate)
+                        viewModel.loadCallLogsForDate(context, selectedDate)
+                    } finally {
+                        isRefreshing = false
+                    }
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 8.dp, bottom = 80.dp)
+                .size(48.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = "Refresh"
+            )
+        }
+
+        // filter pop-up
+        if (showFilters) {
+            AlertDialog(
+                onDismissRequest = { showFilters = false },
+                title = { Text("Filter categories") },
+                text = {
+                    Column {
+                        allTypes.forEach { type ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Checkbox(
+                                    checked = type in selectedTypes,
+                                    onCheckedChange = { checked ->
+                                        if (checked) {
+                                            if (type !in selectedTypes) selectedTypes.add(type)
+                                        } else {
+                                            selectedTypes.remove(type)
+                                        }
+                                    }
+                                )
+                                Text("${emojiFor(type)} $type")
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showFilters = false }) {
+                        Text("Done")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        selectedTypes.clear()
+                        selectedTypes.addAll(allTypes)
+                    }) {
+                        Text("Reset")
+                    }
+                }
+            )
         }
     }
 }

@@ -21,6 +21,11 @@ sealed class LogEntry(val timestamp: Long) {
         val time: Long
     ) : LogEntry(time)
 
+    data class VideoLog(
+        val uri: Uri,
+        val time: Long
+    ) : LogEntry(time)
+
     data class CallLog(
         val duration: String,
         val callType: String,
@@ -38,4 +43,11 @@ sealed class LogEntry(val timestamp: Long) {
         val secondaryText: String,
         val time: Long
     ) : LogEntry(time)
+
+    data class CalendarLog(
+        val event: String,
+        val location: String,
+        val duration: Long,
+        val time: Long
+    ) : LogEntry (time)
 }
