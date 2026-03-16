@@ -97,11 +97,7 @@ No collected personal data is uploaded to external servers by the application it
 
 ## Installation
 
-1. Clone the repository:
-
-```bash
-git clone <repository-url>
-```
+1. Clone the repository.
 
 2. Open the project in Android Studio.
 
