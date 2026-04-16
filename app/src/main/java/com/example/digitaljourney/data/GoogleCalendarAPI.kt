@@ -1,5 +1,6 @@
 package com.example.digitaljourney.data
 
+import com.example.digitaljourney.data.repositories.GoogleCalendarEventsResponse
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Query

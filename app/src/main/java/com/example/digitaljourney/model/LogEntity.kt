@@ -1,11 +1,11 @@
 package com.example.digitaljourney.model
 
-import com.example.digitaljourney.data.PhotosRepositoryImpl
-import com.example.digitaljourney.data.SpotifyRepositoryImpl
-import com.example.digitaljourney.data.LocationRepositoryImpl
-import com.example.digitaljourney.data.LogSyncManager
-import com.example.digitaljourney.data.WeatherRepository
-import com.example.digitaljourney.data.CalendarRepository
+import com.example.digitaljourney.data.repositories.PhotosRepositoryImpl
+import com.example.digitaljourney.data.repositories.SpotifyRepositoryImpl
+import com.example.digitaljourney.data.repositories.LocationRepositoryImpl
+import com.example.digitaljourney.data.managers.LogSyncManager
+import com.example.digitaljourney.data.repositories.WeatherRepository
+import com.example.digitaljourney.data.repositories.CalendarRepository
 
 import android.content.Context
 import androidx.room.*

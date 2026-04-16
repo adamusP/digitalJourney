@@ -1,4 +1,4 @@
-package com.example.digitaljourney.data
+package com.example.digitaljourney.data.repositories
 import com.example.digitaljourney.model.AppDatabase
 import android.content.Context
 import android.location.Geocoder

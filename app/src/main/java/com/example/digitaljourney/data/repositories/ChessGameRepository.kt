@@ -1,4 +1,4 @@
-package com.example.digitaljourney.data
+package com.example.digitaljourney.data.repositories
 
 import android.util.Log
 import com.example.digitaljourney.model.LogEntry

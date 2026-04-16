@@ -1,4 +1,4 @@
-package com.example.digitaljourney.ui
+package com.example.digitaljourney.ui.screens
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.digitaljourney.model.LogEntity
+import com.example.digitaljourney.ui.emojiFor
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*

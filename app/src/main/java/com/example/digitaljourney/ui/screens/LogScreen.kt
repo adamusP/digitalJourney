@@ -1,4 +1,4 @@
-package com.example.digitaljourney.ui
+package com.example.digitaljourney.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -12,22 +12,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.saveable.rememberSaveable
-import com.example.digitaljourney.model.AppDatabase
-import com.example.digitaljourney.model.LogEntity
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.example.digitaljourney.ui.viewmodel.LogViewModel
 
 
 // Screen with the buttons to log moods and a text field to log text
 @Composable
 fun LogScreen(
+    viewModel: LogViewModel,
     modifier: Modifier = Modifier
 ) {
     var text by remember { mutableStateOf(TextFieldValue("")) }
-    val context = androidx.compose.ui.platform.LocalContext.current
     var showJournal by rememberSaveable { mutableStateOf(false) }
 
     // Emoji data with description
@@ -125,19 +122,10 @@ fun LogScreen(
                         }
 
                         EmojiButton(emoji) {
-                            val input = emoji.emoji
-                            val description = emoji.description
-                            CoroutineScope(Dispatchers.IO).launch {
-                                val db = AppDatabase.getInstance(context)
-                                db.logDao().insert(
-                                    LogEntity(
-                                        type = "mood",
-                                        data = input,
-                                        secondaryData = description,
-                                        timestamp = System.currentTimeMillis()
-                                    )
-                                )
-                            }
+                            viewModel.logMood(
+                                emoji = emoji.emoji,
+                                description = emoji.description
+                            )
                         }
                     }
                 }
@@ -163,19 +151,7 @@ fun LogScreen(
 
                 Button(
                     onClick = {
-                        val input = text.text.trim()
-                        if (input.isNotEmpty()) {
-                            CoroutineScope(Dispatchers.IO).launch {
-                                val db = AppDatabase.getInstance(context)
-                                db.logDao().insert(
-                                    LogEntity(
-                                        type = "text",
-                                        data = input,
-                                        secondaryData = "",
-                                        timestamp = System.currentTimeMillis()
-                                    )
-                                )
-                            }
+                        viewModel.logText(text.text) {
                             text = TextFieldValue("")
                         }
                     },

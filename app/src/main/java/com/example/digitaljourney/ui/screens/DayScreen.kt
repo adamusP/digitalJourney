@@ -1,11 +1,6 @@
-package com.example.digitaljourney.ui
+package com.example.digitaljourney.ui.screens
 
-import com.example.digitaljourney.data.LocationRepositoryImpl
-import com.example.digitaljourney.data.LogSyncManager
-import com.example.digitaljourney.data.PhotosRepositoryImpl
-import com.example.digitaljourney.data.SpotifyRepositoryImpl
-import com.example.digitaljourney.data.WeatherRepository
-import com.example.digitaljourney.data.CalendarRepository
+
 import com.example.digitaljourney.model.LogEntity
 
 import android.net.Uri
@@ -61,7 +56,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.runtime.rememberCoroutineScope
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -74,15 +69,17 @@ import java.time.format.DateTimeFormatter
 import coil.request.ImageRequest
 import coil.decode.VideoFrameDecoder
 import coil.request.videoFrameMillis
+import com.example.digitaljourney.ui.viewmodel.DayViewModel
+import com.example.digitaljourney.ui.emojiFor
 
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+
 
 
 // Screen with a list of all the logs in the selected date
 @Composable
 public fun LogListScreen(
-    viewModel: MainViewModel,
+    viewModel: DayViewModel,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -104,20 +101,6 @@ public fun LogListScreen(
     val selectedTypes = remember {
         mutableStateListOf(*allTypes.toTypedArray())
     }
-
-    val syncManager = remember(context) {
-        LogSyncManager(
-            context,
-            SpotifyRepositoryImpl(),
-            PhotosRepositoryImpl(),
-            LocationRepositoryImpl(),
-            WeatherRepository(),
-            CalendarRepository
-        )
-    }
-
-    val scope = rememberCoroutineScope()
-    var isRefreshing by rememberSaveable { mutableStateOf(false) }
 
     val mediaPermissionLauncher =
         rememberLauncherForActivityResult(
@@ -157,8 +140,6 @@ public fun LogListScreen(
 
     // Fetch photos for the date when screen opens
     LaunchedEffect(selectedDate) {
-
-        syncManager.syncNow()       // sync the rest of the logs
 
         val mediaPermission =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -444,18 +425,7 @@ public fun LogListScreen(
 
         FloatingActionButton(
             onClick = {
-                scope.launch {
-                    isRefreshing = true
-                    try {
-                        syncManager.syncNow()
-                        viewModel.loadLogsForDate(selectedDate)
-                        viewModel.loadPhotosForDate(context, selectedDate)
-                        viewModel.loadVideosForDate(context, selectedDate)
-                        viewModel.loadCallLogsForDate(context, selectedDate)
-                    } finally {
-                        isRefreshing = false
-                    }
-                }
+                viewModel.refreshSelectedDay(context)
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)

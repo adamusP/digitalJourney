@@ -1,15 +1,14 @@
-package com.example.digitaljourney.ui
-import com.example.digitaljourney.data.PhotosRepositoryImpl
-import com.example.digitaljourney.data.CallRepositoryImpl
-import com.example.digitaljourney.data.SettingsRepository
+package com.example.digitaljourney.ui.screens
+
+import com.example.digitaljourney.data.repositories.SettingsRepository
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,17 +18,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.digitaljourney.ui.viewmodel.MonthViewModel
+import com.example.digitaljourney.ui.emojiFor
 import com.example.digitaljourney.ui.theme.Purple40
 import com.example.digitaljourney.ui.theme.Purple80
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 // Screen with the day grid for the selected month, with filters
 @Composable
 fun MonthScreen(
-    viewModel: MainViewModel,
+    viewModel: MonthViewModel,
     onDaySelected: (LocalDate) -> Unit
 ) {
     val selectedMonth by viewModel.selectedMonth
@@ -46,38 +45,17 @@ fun MonthScreen(
     val logs by viewModel.getLogsForMonth(selectedMonth)
         .collectAsState(initial = emptyList())
     val logsByDay = remember(logs) {
-        logs.groupBy {
-            Instant.ofEpochMilli(it.timestamp).atZone(ZoneOffset.UTC).toLocalDate()
-        }
+        viewModel.buildLogsByDay(logs)
     }
 
-
-    fun filteredEntriesForDay(dayDate: LocalDate): List<Any> {
-        val entries = logsByDay[dayDate].orEmpty()
-
-        return when (selectedFilter) {
-            "Off" -> emptyList()
-            "All" -> entries +
-                    PhotosRepositoryImpl().fetchPhotosForDate(context, dayDate) +
-                    PhotosRepositoryImpl().fetchVideosForDate(context, dayDate) +
-                    CallRepositoryImpl().fetchCallsForDate(context, dayDate)
-
-            "photo" -> PhotosRepositoryImpl().fetchPhotosForDate(context, dayDate)
-            "video" -> PhotosRepositoryImpl().fetchVideosForDate(context, dayDate)
-            "call" -> CallRepositoryImpl().fetchCallsForDate(context, dayDate)
-
-            else -> entries.filter { it.type == selectedFilter }
-        }
-    }
-
-    val maxCountForMonth = remember(selectedMonth, selectedFilter, logs) {
+    val maxCountForMonth = remember(selectedMonth, selectedFilter, logsByDay) {
         if (selectedFilter == "Off") {
             0
         } else {
             (1..selectedMonth.lengthOfMonth())
                 .maxOfOrNull { day ->
                     val dayDate = selectedMonth.withDayOfMonth(day)
-                    filteredEntriesForDay(dayDate).size
+                    viewModel.getCountForDay(dayDate, logsByDay)
                 } ?: 0
         }
     }
@@ -150,7 +128,7 @@ fun MonthScreen(
                         DropdownMenuItem(
                             text = { Text("${emojiFor(option)} ${option}") },
                             onClick = {
-                                viewModel.selectedFilter.value = option
+                                viewModel.setSelectedFilter(option)
                                 expanded = false
                             }
                         )
@@ -200,7 +178,8 @@ fun MonthScreen(
                             } else {
                                 val day = cellIndex - firstDayOfWeek + 1
                                 val dayDate = selectedMonth.withDayOfMonth(day)
-                                val count = filteredEntriesForDay(dayDate).size
+                                val count = viewModel.getCountForDay(dayDate, logsByDay)
+
                                 val normalized = if (maxCountForMonth > 0) {
                                     count.toFloat() / maxCountForMonth.toFloat()
                                 } else {
@@ -232,7 +211,6 @@ fun MonthScreen(
                                 Button(
                                     onClick = {
                                         val clickedDate = selectedMonth.withDayOfMonth(day)
-                                        viewModel.setDate(clickedDate)
                                         onDaySelected(clickedDate)
                                     },
                                     modifier = Modifier
@@ -261,7 +239,6 @@ fun MonthScreen(
             Button(
                 onClick = {
                     val todayDate = LocalDate.now()
-                    viewModel.setDate(todayDate)
                     onDaySelected(todayDate)
                 },
                 modifier = Modifier

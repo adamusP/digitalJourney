@@ -1,7 +1,14 @@
-package com.example.digitaljourney.data
+package com.example.digitaljourney.data.managers
 
 import android.content.Context
 import android.util.Log
+import com.example.digitaljourney.data.repositories.CalendarRepository
+import com.example.digitaljourney.data.repositories.ChessGameRepository
+import com.example.digitaljourney.data.repositories.LocationRepository
+import com.example.digitaljourney.data.repositories.PhotosRepository
+import com.example.digitaljourney.data.repositories.SpotifyFetchResult
+import com.example.digitaljourney.data.repositories.SpotifyRepository
+import com.example.digitaljourney.data.repositories.WeatherRepository
 import com.example.digitaljourney.model.AppDatabase
 import com.example.digitaljourney.model.LogEntity
 import kotlinx.coroutines.Dispatchers

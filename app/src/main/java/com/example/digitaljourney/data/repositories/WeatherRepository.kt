@@ -1,4 +1,4 @@
-package com.example.digitaljourney.data
+package com.example.digitaljourney.data.repositories
 
 import okhttp3.OkHttpClient
 import okhttp3.Request

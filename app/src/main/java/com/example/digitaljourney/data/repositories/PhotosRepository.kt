@@ -1,4 +1,4 @@
-package com.example.digitaljourney.data
+package com.example.digitaljourney.data.repositories
 
 import com.example.digitaljourney.model.LogEntry
 import android.content.ContentUris

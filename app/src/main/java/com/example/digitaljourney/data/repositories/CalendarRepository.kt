@@ -1,6 +1,9 @@
-package com.example.digitaljourney.data
+package com.example.digitaljourney.data.repositories
 
 import android.content.Context
+import com.example.digitaljourney.data.GoogleCalendarApi
+import com.example.digitaljourney.data.managers.GoogleCalendarAuth
+import com.example.digitaljourney.data.managers.TokenManager
 import com.example.digitaljourney.model.AppDatabase
 import com.example.digitaljourney.model.LogDao
 import com.example.digitaljourney.model.LogEntity

@@ -1,12 +1,12 @@
 package com.example.digitaljourney.ui
 
+import android.Manifest
 import com.example.digitaljourney.ui.theme.DigitalJourneyTheme
-import com.example.digitaljourney.model.LogCollectorWorker
-import com.example.digitaljourney.data.*
 
 import android.os.Bundle
 import android.util.Log
 import android.content.Intent
+import android.os.Build
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -36,33 +36,38 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.core.view.WindowCompat
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.ViewModelProvider
-import androidx.credentials.CredentialManager
+import com.example.digitaljourney.data.managers.GoogleCalendarAuth
+import com.example.digitaljourney.data.managers.SpotifyAuthManager
+import com.example.digitaljourney.data.repositories.AuthRepository
 
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 
-import java.util.concurrent.TimeUnit
-
 import kotlinx.coroutines.launch
 
-import com.example.digitaljourney.data.SettingsRepository
-import com.example.digitaljourney.notifications.NotificationScheduler
-
+import com.example.digitaljourney.ui.screens.LogListScreen
+import com.example.digitaljourney.ui.screens.LogScreen
+import com.example.digitaljourney.ui.screens.MonthScreen
+import com.example.digitaljourney.ui.screens.SearchScreen
+import com.example.digitaljourney.ui.screens.SettingsScreen
+import com.example.digitaljourney.ui.viewmodel.AppStartupViewModel
+import com.example.digitaljourney.ui.viewmodel.DayViewModel
+import com.example.digitaljourney.ui.viewmodel.LogViewModel
+import com.example.digitaljourney.ui.viewmodel.MonthViewModel
+import com.example.digitaljourney.ui.viewmodel.SearchViewModel
+import com.example.digitaljourney.ui.viewmodel.SettingsViewModel
+import java.time.Instant
+import java.time.ZoneId
 
 
 class MainActivity : ComponentActivity() {
-    private lateinit var viewModel: MainViewModel
 
     // capture the access token once, for the fetch button
     private lateinit var authService: AuthorizationService
@@ -83,56 +88,23 @@ class MainActivity : ComponentActivity() {
             return@registerForActivityResult
         }
 
-        authService.performTokenRequest(
-            response.createTokenExchangeRequest()
-        ) { tokenResponse, tokenEx ->
-            val accessToken = tokenResponse?.accessToken
-            if (accessToken != null) {
-                TokenManager.saveSpotifyTokens(
-                    this,
-                    accessToken,
-                    tokenResponse.refreshToken
-                )
-            } else {
-                Log.e("SpotifyAuth", "Token exchange failed: $tokenEx")
-            }
+        val settingsViewModel = androidx.lifecycle.ViewModelProvider(this)[SettingsViewModel::class.java]
+
+        lifecycleScope.launch {
+            val authRepository = AuthRepository(this@MainActivity)
+            authRepository.exchangeSpotifyToken(authService, response)
+                .onFailure {
+                    Log.e("SpotifyAuth", "Token exchange failed", it)
+                    settingsViewModel.onSpotifyTokenExchangeFailed(it.message ?: "Spotify auth failed")
+                }
         }
     }
-
-    private lateinit var credentialManager: CredentialManager
 
     private val googleAuthorizationLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        lifecycleScope.launch {
-            when (val authResult = GoogleCalendarAuth.requestCalendarAccess(this@MainActivity)) {
-                is GoogleCalendarAuth.AuthResult.Token -> {
-                    TokenManager.saveGoogleTokens(this@MainActivity, authResult.accessToken, null)
-
-                    try {
-                        CalendarRepository.syncCalendarLogs(this@MainActivity)
-                    } catch (e: Exception) {
-                        Log.e("GoogleAuth", "Calendar sync failed", e)
-                    }
-                }
-
-                is GoogleCalendarAuth.AuthResult.Error -> {
-                    Log.e("GoogleAuth", authResult.message)
-                }
-
-                is GoogleCalendarAuth.AuthResult.NeedsResolution -> {
-                    Log.e("GoogleAuth", "Authorization still requires resolution")
-                }
-            }
-        }
-    }
-
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (!isGranted) {
-            Log.w("Notifications", "Notification permission denied")
-        }
+        val settingsViewModel = androidx.lifecycle.ViewModelProvider(this)[SettingsViewModel::class.java]
+        settingsViewModel.continueGoogleLoginAfterResolution()
     }
 
     private val notificationOpenLogEvent = mutableStateOf(false)
@@ -150,34 +122,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        viewModel = ViewModelProvider(this)[MainViewModel::class.java]
         authService = AuthorizationService(this)
-        credentialManager = CredentialManager.create(this)
-
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "log_collector",
-            ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<LogCollectorWorker>(15, TimeUnit.MINUTES).build()
-        )
-
-        lifecycleScope.launch {
-            val sync = LogSyncManager(
-                this@MainActivity,
-                SpotifyRepositoryImpl(),
-                PhotosRepositoryImpl(),
-                LocationRepositoryImpl(),
-                WeatherRepository(),
-                CalendarRepository
-            )
-            sync.syncNow()
-        }
 
         setContent {
             val context = LocalContext.current
-            val settingsRepository = remember { SettingsRepository(context) }
-            var darkModeEnabled by remember {
-                mutableStateOf(settingsRepository.isDarkModeEnabled())
+
+            val dayViewModel: DayViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val monthViewModel: MonthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val searchViewModel: SearchViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val settingsViewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val appStartupViewModel: AppStartupViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+
+            val googleResolution by settingsViewModel.googleAuthNeedsResolution
+            val googleAuthError by settingsViewModel.googleAuthError
+            val spotifyAuthError by settingsViewModel.spotifyAuthError
+
+            val darkModeEnabled by settingsViewModel.darkModeEnabled
+
+            LaunchedEffect(Unit) {
+                appStartupViewModel.initializeApp()
             }
 
             // making system icons normal in dark mode
@@ -185,6 +148,17 @@ class MainActivity : ComponentActivity() {
                 val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                 insetsController.isAppearanceLightStatusBars = !darkModeEnabled
                 insetsController.isAppearanceLightNavigationBars = !darkModeEnabled
+            }
+
+            val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { isGranted ->
+                if (isGranted) {
+                    settingsViewModel.setNotificationsEnabled(true)
+                } else {
+                    Log.w("Notifications", "Notification permission denied")
+                    settingsViewModel.setNotificationsEnabled(false)
+                }
             }
 
             DigitalJourneyTheme(darkTheme = darkModeEnabled) {
@@ -211,11 +185,6 @@ class MainActivity : ComponentActivity() {
                 }
 
 
-
-                var notificationsEnabled by remember {
-                    mutableStateOf(settingsRepository.isNotificationsEnabled())
-                }
-
                 val openLogFromNotification by notificationOpenLogEvent
 
 
@@ -224,6 +193,30 @@ class MainActivity : ComponentActivity() {
                     if (openLogFromNotification) {
                         navigateToTopLevel(Screen.Log.route)
                         notificationOpenLogEvent.value = false
+                    }
+                }
+
+                LaunchedEffect(googleResolution) {
+                    val pendingIntent = googleResolution
+                    if (pendingIntent != null) {
+                        googleAuthorizationLauncher.launch(
+                            IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                        )
+                        settingsViewModel.clearGoogleResolution()
+                    }
+                }
+
+                LaunchedEffect(googleAuthError) {
+                    googleAuthError?.let {
+                        Log.e("GoogleAuth", it)
+                        settingsViewModel.clearGoogleAuthError()
+                    }
+                }
+
+                LaunchedEffect(spotifyAuthError) {
+                    spotifyAuthError?.let {
+                        Log.e("SpotifyAuth", it)
+                        settingsViewModel.clearSpotifyAuthError()
                     }
                 }
 
@@ -333,26 +326,33 @@ class MainActivity : ComponentActivity() {
 
                     ) {
                         composable(Screen.Day.route) {
-                            LogListScreen(viewModel = viewModel)
+                            LogListScreen(viewModel = dayViewModel)
                         }
                         composable(Screen.Month.route) {
                             MonthScreen(
-                                viewModel = viewModel,
+                                viewModel = monthViewModel,
                                 onDaySelected = { date ->
-                                    viewModel.setDate(date)
+                                    dayViewModel.setDate(date)
                                     navController.navigate(Screen.Day.route)
                                 }
                             )
                         }
 
                         composable(Screen.Log.route) {
-                            LogScreen()
+                            val logViewModel: LogViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                            LogScreen(viewModel = logViewModel)
                         }
 
                         composable(Screen.Search.route) {
                             SearchScreen(
-                                viewModel = viewModel,
-                                onResultClick = {
+                                viewModel = searchViewModel,
+                                onResultClick = { timestamp ->
+                                    dayViewModel.highlightLog(timestamp)
+                                    dayViewModel.setDate(
+                                        Instant.ofEpochMilli(timestamp)
+                                            .atZone(ZoneId.systemDefault())
+                                            .toLocalDate()
+                                    )
                                     navController.navigate(Screen.Day.route)
                                 }
                             )
@@ -360,29 +360,11 @@ class MainActivity : ComponentActivity() {
 
                         composable(Screen.Settings.route) {
                             SettingsScreen(
+                                viewModel = settingsViewModel,
                                 onAuthenticateSpotify = { startSpotifyLogin() },
-                                onAuthenticateGoogle = { startGoogleLogin() },
-                                requestChessName = { username ->
-                                    TokenManager.saveChessUsername(applicationContext, username)
-                                },
-                                darkModeEnabled = darkModeEnabled,
-                                onDarkModeChanged = { enabled ->
-                                    darkModeEnabled = enabled
-                                    settingsRepository.setDarkModeEnabled(enabled)
-                                },
-                                notificationsEnabled = notificationsEnabled,
-                                onNotificationsChanged = { enabled ->
-                                    notificationsEnabled = enabled
-                                    settingsRepository.setNotificationsEnabled(enabled)
-
-                                    if (enabled) {
-                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                                            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                                        }
-                                        NotificationScheduler.scheduleDailyReminder(context)
-                                    } else {
-                                        NotificationScheduler.cancelDailyReminder(context)
-                                    }
+                                onAuthenticateGoogle = { startGoogleLogin(settingsViewModel) },
+                                onRequestNotificationPermission = {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 }
                             )
                         }
@@ -403,42 +385,26 @@ class MainActivity : ComponentActivity() {
         authLauncher.launch(authIntent)
     }
 
-    private fun startGoogleLogin() {
-
+    private fun startGoogleLogin(settingsViewModel: SettingsViewModel) {
         lifecycleScope.launch {
             try {
-                when (val result = GoogleCalendarAuth.signInAndAuthorize(this@MainActivity)) {
-                    is GoogleCalendarAuth.AuthResult.Token -> {
-                        TokenManager.saveGoogleTokens(this@MainActivity, result.accessToken, null)
-
-                        try {
-                            CalendarRepository.syncCalendarLogs(this@MainActivity)
-                        } catch (e: Exception) {
-                            Log.e("GoogleAuth", "Calendar sync failed", e)
-                        }
-                    }
-
-                    is GoogleCalendarAuth.AuthResult.NeedsResolution -> {
-                        val pendingIntent = result.pendingIntent
-                        if (pendingIntent != null) {
-                            googleAuthorizationLauncher.launch(
-                                IntentSenderRequest.Builder(pendingIntent.intentSender).build()
-                            )
-                        } else {
-                            Log.e("GoogleAuth", "Resolution required but pendingIntent was null")
-                        }
-                    }
-
-                    is GoogleCalendarAuth.AuthResult.Error -> {
-                        Log.e("GoogleAuth", result.message)
-                    }
-                }
+                val result = GoogleCalendarAuth.signInAndAuthorize(this@MainActivity)
+                settingsViewModel.onGoogleLoginResult(result)
             } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
                 Log.w("GoogleAuth", "User canceled or account reauth failed", e)
+                settingsViewModel.onGoogleLoginResult(
+                    GoogleCalendarAuth.AuthResult.Error("Google sign-in was canceled or account reauth failed")
+                )
             } catch (e: androidx.credentials.exceptions.GetCredentialException) {
                 Log.e("GoogleAuth", "Credential Manager failed", e)
+                settingsViewModel.onGoogleLoginResult(
+                    GoogleCalendarAuth.AuthResult.Error("Credential Manager failed: ${e.message}")
+                )
             } catch (e: Exception) {
                 Log.e("GoogleAuth", "Unexpected Google sign-in failure", e)
+                settingsViewModel.onGoogleLoginResult(
+                    GoogleCalendarAuth.AuthResult.Error("Unexpected Google sign-in failure")
+                )
             }
         }
     }

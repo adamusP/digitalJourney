@@ -1,4 +1,4 @@
-package com.example.digitaljourney.data
+package com.example.digitaljourney.data.repositories
 
 import android.content.Context
 import android.provider.CallLog

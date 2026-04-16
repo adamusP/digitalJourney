@@ -1,4 +1,4 @@
-package com.example.digitaljourney.data
+package com.example.digitaljourney.data.managers
 
 import android.app.Activity
 import android.content.Context

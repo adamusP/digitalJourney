@@ -1,40 +1,42 @@
-package com.example.digitaljourney.ui
+package com.example.digitaljourney.ui.screens
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
+import androidx.compose.runtime.setValue
+import com.example.digitaljourney.ui.viewmodel.SearchViewModel
+import com.example.digitaljourney.ui.emojiFor
 
-import androidx.compose.foundation.clickable
-
-// Screen that shows text input and button for searching all logs
 @Composable
 fun SearchScreen(
-    viewModel: MainViewModel,
-    onResultClick: () -> Unit,
+    viewModel: SearchViewModel,
+    onResultClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var text by remember { mutableStateOf(TextFieldValue("")) }
     val context = LocalContext.current
     val results by viewModel.searchResults
-
 
     Column(
         modifier = modifier
@@ -64,7 +66,6 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // List of results
         LazyColumn(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -78,11 +79,10 @@ fun SearchScreen(
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                         .clickable {
-                            viewModel.goToLogDay(log.timestamp)   // on clicking the result, user is sent to the days logs
-                            onResultClick()
+                            onResultClick(log.timestamp)
                         }
                 ) {
-                    Text(emojiFor(log.type) + log.data, fontWeight = FontWeight.Bold)
+                    Text("${emojiFor(log.type)} ${log.data}", fontWeight = FontWeight.Bold)
                     Text("Date: $dt", style = MaterialTheme.typography.bodySmall)
                 }
             }
