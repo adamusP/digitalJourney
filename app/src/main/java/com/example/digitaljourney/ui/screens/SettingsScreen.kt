@@ -16,6 +16,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,12 @@ fun SettingsScreen(
 
     val darkModeEnabled by viewModel.darkModeEnabled
     val notificationsEnabled by viewModel.notificationsEnabled
+
+    val totalLogs by viewModel.totalLogs
+
+    LaunchedEffect(Unit) {
+        viewModel.loadTotalLogs()
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -109,6 +116,13 @@ fun SettingsScreen(
                     onCheckedChange = viewModel::setDarkModeEnabled
                 )
             }
+
+            Spacer(modifier = Modifier.height(100.dp))
+
+            Text(
+                text = "Total logs: $totalLogs",
+                fontWeight = FontWeight.SemiBold
+            )
 
             if (showDialog) {
                 AlertDialog(

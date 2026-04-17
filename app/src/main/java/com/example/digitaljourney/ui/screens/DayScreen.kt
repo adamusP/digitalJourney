@@ -74,9 +74,17 @@ import com.example.digitaljourney.ui.emojiFor
 
 import kotlinx.coroutines.delay
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberDatePickerState
+import java.time.LocalDate
+
 
 
 // Screen with a list of all the logs in the selected date
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 public fun LogListScreen(
     viewModel: DayViewModel,
@@ -87,6 +95,8 @@ public fun LogListScreen(
     val selectedDate by viewModel.selectedDate
     val photos by viewModel.photosForDay
     val videos by viewModel.videosForDay
+
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
 
     val highlightedTimestamp by viewModel.highlightedLogTimestamp
     val listState = rememberLazyListState()
@@ -216,6 +226,7 @@ public fun LogListScreen(
         }
     }
 
+    val dayFormatter = DateTimeFormatter.ofPattern("EEEE")
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
@@ -228,7 +239,7 @@ public fun LogListScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -241,7 +252,13 @@ public fun LogListScreen(
                         contentDescription = "Previous month"
                     )
                 }
-                Text(selectedDate.format(dateFormatter), fontWeight = FontWeight.Bold)
+                Text(
+                    text = "${selectedDate.format(dayFormatter)}, ${selectedDate.format(dateFormatter)}",
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clickable { showDatePicker = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
                 IconButton(
                     onClick = { viewModel.nextDay() },
                     modifier = Modifier.size(48.dp)
@@ -479,6 +496,43 @@ public fun LogListScreen(
                     }
                 }
             )
+        }
+
+        if (showDatePicker) {
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = selectedDate
+                    .atStartOfDay(ZoneId.of("UTC"))
+                    .toInstant()
+                    .toEpochMilli()
+            )
+
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val pickedMillis = datePickerState.selectedDateMillis
+                            if (pickedMillis != null) {
+                                val pickedDate = Instant.ofEpochMilli(pickedMillis)
+                                    .atZone(ZoneId.of("UTC"))
+                                    .toLocalDate()
+
+                                viewModel.setDate(pickedDate)
+                            }
+                            showDatePicker = false
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
         }
     }
 }

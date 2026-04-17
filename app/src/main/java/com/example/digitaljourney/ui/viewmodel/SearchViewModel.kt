@@ -14,6 +14,8 @@ import com.example.digitaljourney.data.repositories.LogRepository
 
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import java.time.LocalDate
+import java.time.ZoneId
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -23,7 +25,14 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val _searchResults = mutableStateOf<List<LogEntity>>(emptyList())
     val searchResults: State<List<LogEntity>> = _searchResults
 
-    fun search(context: Context, query: String) {
+    fun search(
+        context: Context,
+        query: String,
+        fromDate: LocalDate? = null,
+        toDate: LocalDate? = null,
+        selectedTypes: Set<String> = emptySet(),
+        newestFirst: Boolean = true
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             val dbResults = logRepository.searchLogs(query)
 
@@ -37,9 +46,35 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             val merged = (dbResults + callResults)
-                .sortedByDescending { it.timestamp }
 
-            _searchResults.value = merged
+            val fromMillis = fromDate
+                ?.atStartOfDay(ZoneId.systemDefault())
+                ?.toInstant()
+                ?.toEpochMilli()
+
+            val toMillis = toDate
+                ?.plusDays(1)
+                ?.atStartOfDay(ZoneId.systemDefault())
+                ?.toInstant()
+                ?.toEpochMilli()
+
+            val filtered = merged
+                .filter { log ->
+                    val matchesFrom = fromMillis == null || log.timestamp >= fromMillis
+                    val matchesTo = toMillis == null || log.timestamp < toMillis
+                    val matchesType = selectedTypes.isEmpty() || log.type in selectedTypes
+
+                    matchesFrom && matchesTo && matchesType
+                }
+                .let {
+                    if (newestFirst) {
+                        it.sortedByDescending { log -> log.timestamp }
+                    } else {
+                        it.sortedBy { log -> log.timestamp }
+                    }
+                }
+
+            _searchResults.value = filtered
         }
     }
 

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,6 +61,20 @@ fun MonthScreen(
         }
     }
 
+    var showMonthPicker by rememberSaveable { mutableStateOf(false) }
+
+    val monthNames = listOf(
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    )
+
+    var selectedMonthIndex by remember(showMonthPicker, selectedMonth) {
+        mutableStateOf(selectedMonth.monthValue - 1)
+    }
+    var selectedYear by remember(showMonthPicker, selectedMonth) {
+        mutableStateOf(selectedMonth.year)
+    }
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -82,7 +97,13 @@ fun MonthScreen(
                 ) {
                     Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "Previous month")
                 }
-                Text(selectedMonth.format(dateFormatter), fontWeight = FontWeight.Bold)
+                Text(
+                    text = selectedMonth.format(dateFormatter),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clickable { showMonthPicker = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
                 IconButton(onClick = { viewModel.nextMonth() }, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Next month")
                 }
@@ -97,7 +118,7 @@ fun MonthScreen(
                     .padding(horizontal = 16.dp)
             ) {
                 OutlinedTextField(
-                    value = selectedFilter,
+                    value = "${emojiFor(selectedFilter)} ${selectedFilter}",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Filter") },
@@ -258,6 +279,119 @@ fun MonthScreen(
             ) {
                 Text("This month", fontWeight = FontWeight.Bold)
             }
+        }
+
+        // custom month pick dialog
+        if (showMonthPicker) {
+            var monthExpanded by remember { mutableStateOf(false) }
+            var yearExpanded by remember { mutableStateOf(false) }
+
+            val currentYear = LocalDate.now().year
+            val years = ((currentYear - 10)..(currentYear + 10)).toList()
+
+            AlertDialog(
+                onDismissRequest = { showMonthPicker = false },
+                title = { Text("Select month") },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box {
+                            OutlinedTextField(
+                                value = monthNames[selectedMonthIndex],
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Month") },
+                                trailingIcon = {
+                                    IconButton(onClick = { monthExpanded = !monthExpanded }) {
+                                        Icon(
+                                            imageVector = if (monthExpanded)
+                                                Icons.Filled.KeyboardArrowUp
+                                            else
+                                                Icons.Filled.KeyboardArrowDown,
+                                            contentDescription = null
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { monthExpanded = true }
+                            )
+
+                            DropdownMenu(
+                                expanded = monthExpanded,
+                                onDismissRequest = { monthExpanded = false },
+                                modifier = Modifier.heightIn(max = 300.dp)
+                            ) {
+                                monthNames.forEachIndexed { index, name ->
+                                    DropdownMenuItem(
+                                        text = { Text(name) },
+                                        onClick = {
+                                            selectedMonthIndex = index
+                                            monthExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Box {
+                            OutlinedTextField(
+                                value = selectedYear.toString(),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Year") },
+                                trailingIcon = {
+                                    IconButton(onClick = { yearExpanded = !yearExpanded }) {
+                                        Icon(
+                                            imageVector = if (yearExpanded)
+                                                Icons.Filled.KeyboardArrowUp
+                                            else
+                                                Icons.Filled.KeyboardArrowDown,
+                                            contentDescription = null
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { yearExpanded = true }
+                            )
+
+                            DropdownMenu(
+                                expanded = yearExpanded,
+                                onDismissRequest = { yearExpanded = false },
+                                modifier = Modifier.heightIn(max = 300.dp)
+                            ) {
+                                years.forEach { year ->
+                                    DropdownMenuItem(
+                                        text = { Text(year.toString()) },
+                                        onClick = {
+                                            selectedYear = year
+                                            yearExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val newDate = LocalDate.of(selectedYear, selectedMonthIndex + 1, 1)
+                            viewModel.setMonth(newDate)
+                            showMonthPicker = false
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showMonthPicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
 
     }

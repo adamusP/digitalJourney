@@ -11,6 +11,10 @@ class LogRepository(private val context: Context) {
 
     private val logDao = AppDatabase.getInstance(context).logDao()
 
+    fun getAllLogsCount(): Int {
+        return logDao.getLogCount()
+    }
+
     fun getLogsForDay(startOfDay: Long, endOfDay: Long): Flow<List<LogEntity>> {
         return logDao.getLogsForDay(startOfDay, endOfDay)
     }

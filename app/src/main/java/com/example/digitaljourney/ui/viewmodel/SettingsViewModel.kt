@@ -12,6 +12,8 @@ import com.example.digitaljourney.data.repositories.SettingsRepository
 import com.example.digitaljourney.data.managers.TokenManager
 import com.example.digitaljourney.notifications.NotificationScheduler
 import kotlinx.coroutines.launch
+import com.example.digitaljourney.data.repositories.LogRepository
+import kotlinx.coroutines.Dispatchers
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -33,6 +35,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val _spotifyAuthError = mutableStateOf<String?>(null)
     val spotifyAuthError: State<String?> = _spotifyAuthError
+
+    private val logRepository = LogRepository(application)
+
+    private val _totalLogs = mutableStateOf(0)
+    val totalLogs: State<Int> = _totalLogs
+
+    fun loadTotalLogs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _totalLogs.value = logRepository.getAllLogsCount()
+        }
+    }
 
     fun setDarkModeEnabled(enabled: Boolean) {
         _darkModeEnabled.value = enabled

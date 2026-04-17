@@ -80,6 +80,9 @@ interface LogDao {
     @Query("SELECT * FROM logs WHERE type = 'calendar'")
     suspend fun getAllCalendarLogs(): List<LogEntity>
 
+    @Query("SELECT COUNT(*) FROM logs")
+    fun getLogCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(logs: List<LogEntity>)
 
