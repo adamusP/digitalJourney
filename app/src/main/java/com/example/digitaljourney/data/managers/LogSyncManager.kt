@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.example.digitaljourney.data.repositories.CalendarRepository
 import com.example.digitaljourney.data.repositories.ChessGameRepository
+import com.example.digitaljourney.data.repositories.MovieRepository
 import com.example.digitaljourney.data.repositories.LocationRepository
 import com.example.digitaljourney.data.repositories.PhotosRepository
 import com.example.digitaljourney.data.repositories.SpotifyFetchResult
@@ -166,6 +167,29 @@ class LogSyncManager(
                 }
             } catch (e: Exception) {
                 Log.e("LogSyncManager", "Calendar sync failed", e)
+            }
+
+            // Letterboxd
+            try {
+                val letterboxdUsername = TokenManager.getLetrUsername(context)
+                if (letterboxdUsername != null) {
+                    val movieLogs = MovieRepository().fetchRecentMovies(letterboxdUsername)
+                    for (log in movieLogs) {
+                        val alreadyExists = db.logDao().exists("movie", log.time) > 0
+                        if (!alreadyExists) {
+                            db.logDao().insert(
+                                LogEntity(
+                                    type = "movie",
+                                    data = log.primaryText,
+                                    secondaryData = log.secondaryText,
+                                    timestamp = log.time
+                                )
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("LogSyncManager", "Letterboxd sync failed", e)
             }
 
             // Chess

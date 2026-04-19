@@ -71,7 +71,7 @@ fun SearchScreen(
 
     val allTypes = listOf(
         "spotify", "photo", "video", "location", "weather",
-        "call", "calendar", "chess", "text", "mood"
+        "call", "calendar", "movie", "chess", "text", "mood"
     )
 
     var showFilters by remember { mutableStateOf(false) }

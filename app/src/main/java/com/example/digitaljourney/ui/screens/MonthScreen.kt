@@ -37,7 +37,7 @@ fun MonthScreen(
     val dateFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
 
     var expanded by remember { mutableStateOf(false) }
-    val filterOptions = listOf("Off", "All", "spotify", "photo", "video", "location", "weather", "call", "calendar", "chess", "text", "mood")
+    val filterOptions = listOf("Off", "All", "spotify", "photo", "video", "location", "weather", "call", "calendar", "movie", "chess", "text", "mood")
 
     val context = LocalContext.current
     val settingsRepository = remember { SettingsRepository(context) }

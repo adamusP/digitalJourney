@@ -8,6 +8,7 @@ object TokenManager {
     private const val KEY_SPOTIFY_REFRESH_TOKEN = "spotify_refresh_token"
     private const val WEATHER_API_KEY = "d6facaf40c47b2b1dc2f23e84f84781f"
     private const val KEY_CHESS_USERNAME = "chess_username"
+    private const val KEY_LETR_USERNAME = "letr_username"
     private const val PREFS = "tokens"
     private const val GOOGLE_ACCESS_TOKEN = "google_access_token"
     private const val GOOGLE_REFRESH_TOKEN = "google_refresh_token"
@@ -22,6 +23,17 @@ object TokenManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getString(KEY_CHESS_USERNAME, null)
     }
+
+    fun saveLetrUsername(context: Context, username: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_LETR_USERNAME, username).apply()
+    }
+
+    fun getLetrUsername(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_LETR_USERNAME, null)
+    }
+
 
     fun saveSpotifyTokens(context: Context, accessToken: String, refreshToken: String?) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

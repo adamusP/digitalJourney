@@ -70,6 +70,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun saveLetrUsername(username: String) {
+        val trimmed = username.trim()
+        if (trimmed.isNotEmpty()) {
+            TokenManager.saveLetrUsername(appContext, trimmed)
+        }
+    }
+
+
     fun onGoogleLoginResult(result: GoogleCalendarAuth.AuthResult) {
         viewModelScope.launch {
             when (result) {

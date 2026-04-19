@@ -38,6 +38,12 @@ sealed class LogEntry(val timestamp: Long) {
         val time: Long
     ) : LogEntry(time)
 
+    data class MovieLog(
+        val primaryText: String,
+        val secondaryText: String,
+        val time: Long
+    ) : LogEntry(time)
+
     data class ChessLog(
         val primaryText: String,
         val secondaryText: String,

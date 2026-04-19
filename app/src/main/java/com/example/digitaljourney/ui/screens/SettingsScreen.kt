@@ -36,7 +36,8 @@ fun SettingsScreen(
     onAuthenticateGoogle: () -> Unit,
     onRequestNotificationPermission: () -> Unit
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showChessDialog by remember { mutableStateOf(false) }
+    var showLetrDialog by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
 
     val darkModeEnabled by viewModel.darkModeEnabled
@@ -71,8 +72,12 @@ fun SettingsScreen(
                 Text("Connect to Spotify ${emojiFor("spotify")}")
             }
 
-            Button(onClick = { showDialog = true }, modifier = Modifier.width(250.dp)) {
+            Button(onClick = { showChessDialog = true }, modifier = Modifier.width(250.dp)) {
                 Text("Connect to Chess.com ${emojiFor("chess")}")
+            }
+
+            Button(onClick = { showLetrDialog = true }, modifier = Modifier.width(250.dp)) {
+                Text("Connect to Letterboxd ${emojiFor("movie")}")
             }
 
             Button(onClick = onAuthenticateGoogle, modifier = Modifier.width(250.dp)) {
@@ -124,10 +129,36 @@ fun SettingsScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            if (showDialog) {
+            if (showLetrDialog) {
                 AlertDialog(
-                    onDismissRequest = { showDialog = false },
-                    title = { Text("Enter Chess.com username") },
+                    onDismissRequest = { showLetrDialog = false },
+                    title = { Text("Enter your Letterboxd username") },
+                    text = {
+                        TextField(
+                            value = username,
+                            onValueChange = { username = it }
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            viewModel.saveLetrUsername(username)
+                            showLetrDialog = false
+                        }) {
+                            Text("Save")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = { showLetrDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            if (showChessDialog) {
+                AlertDialog(
+                    onDismissRequest = { showChessDialog = false },
+                    title = { Text("Enter your Chess.com username") },
                     text = {
                         TextField(
                             value = username,
@@ -137,13 +168,13 @@ fun SettingsScreen(
                     confirmButton = {
                         Button(onClick = {
                             viewModel.saveChessUsername(username)
-                            showDialog = false
+                            showChessDialog = false
                         }) {
                             Text("Save")
                         }
                     },
                     dismissButton = {
-                        Button(onClick = { showDialog = false }) {
+                        Button(onClick = { showChessDialog = false }) {
                             Text("Cancel")
                         }
                     }

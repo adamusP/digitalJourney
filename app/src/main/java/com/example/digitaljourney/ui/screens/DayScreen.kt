@@ -104,7 +104,7 @@ public fun LogListScreen(
     val calls by viewModel.callLogsForDay
     var showMap by rememberSaveable { mutableStateOf(false) }
 
-    val allTypes = listOf("spotify", "photo", "video", "location", "weather", "call", "calendar", "chess", "text", "mood")
+    val allTypes = listOf("spotify", "photo", "video", "location", "weather", "call", "calendar", "movie", "chess", "text", "mood")
 
     var showFilters by rememberSaveable { mutableStateOf(false) }
 
@@ -402,6 +402,13 @@ public fun LogListScreen(
                                         Text("$time ${emojiFor(log.type)}")
                                         Text(log.data, fontWeight = FontWeight.SemiBold)
                                         Text(log.secondaryData)
+                                    }
+
+                                    "movie" -> {
+                                        Text("$time ${emojiFor(log.type)}")
+                                        Text(log.data, fontWeight = FontWeight.SemiBold)
+                                        if (log.secondaryData.isNotEmpty())
+                                            Text(log.secondaryData)
                                     }
 
                                     "chess" -> {

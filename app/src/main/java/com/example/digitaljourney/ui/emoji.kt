@@ -11,6 +11,7 @@ object EmojiMap {
         "weather" to "🌤️",
         "call" to "📞",
         "calendar" to "🗓️",
+        "movie" to "🎬",
         "chess" to "♟️",
         "text" to "✍️",
         "mood" to "👤"
