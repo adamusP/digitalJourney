@@ -32,16 +32,19 @@ import com.example.digitaljourney.ui.emojiFor
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    darkModeEnabled: Boolean,
+    notificationsEnabled: Boolean,
+    googleAuthError: String?,
+    spotifyAuthError: String?,
     onAuthenticateSpotify: () -> Unit,
     onAuthenticateGoogle: () -> Unit,
+    onToggleDarkMode: (Boolean) -> Unit,
+    onToggleNotifications: (Boolean) -> Unit,
     onRequestNotificationPermission: () -> Unit
 ) {
     var showChessDialog by remember { mutableStateOf(false) }
     var showLetrDialog by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
-
-    val darkModeEnabled by viewModel.darkModeEnabled
-    val notificationsEnabled by viewModel.notificationsEnabled
 
     val totalLogs by viewModel.totalLogs
 
@@ -72,16 +75,44 @@ fun SettingsScreen(
                 Text("Connect to Spotify ${emojiFor("spotify")}")
             }
 
-            Button(onClick = { showChessDialog = true }, modifier = Modifier.width(250.dp)) {
-                Text("Connect to Chess.com ${emojiFor("chess")}")
+            Button(
+                onClick = {
+                    username = viewModel.getLetrUsername()
+                    showLetrDialog = true
+                },
+                modifier = Modifier.width(250.dp)
+            ) {
+                Text("Connect to Letterboxd ${emojiFor("movie")}")
             }
 
-            Button(onClick = { showLetrDialog = true }, modifier = Modifier.width(250.dp)) {
-                Text("Connect to Letterboxd ${emojiFor("movie")}")
+            Button(
+                onClick = {
+                    username = viewModel.getChessUsername()
+                    showChessDialog = true
+                },
+                modifier = Modifier.width(250.dp)
+            ) {
+                Text("Connect to Chess.com ${emojiFor("chess")}")
             }
 
             Button(onClick = onAuthenticateGoogle, modifier = Modifier.width(250.dp)) {
                 Text("Connect to Google Calendar ${emojiFor("calendar")}")
+            }
+
+            if (spotifyAuthError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = spotifyAuthError,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error
+                )
+            }
+
+            if (googleAuthError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = googleAuthError,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -99,10 +130,10 @@ fun SettingsScreen(
                             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                                 onRequestNotificationPermission()
                             } else {
-                                viewModel.setNotificationsEnabled(true)
+                                onToggleNotifications(true)
                             }
                         } else {
-                            viewModel.setNotificationsEnabled(false)
+                            onToggleNotifications(false)
                         }
                     }
                 )
@@ -118,7 +149,7 @@ fun SettingsScreen(
                 Text("Dark mode")
                 Switch(
                     checked = darkModeEnabled,
-                    onCheckedChange = viewModel::setDarkModeEnabled
+                    onCheckedChange = onToggleDarkMode
                 )
             }
 

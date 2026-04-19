@@ -1,7 +1,9 @@
 package com.example.digitaljourney.data.repositories
 
 import android.content.Context
+import android.content.Intent
 import com.example.digitaljourney.data.managers.GoogleCalendarAuth
+import com.example.digitaljourney.data.managers.SpotifyAuthManager
 import com.example.digitaljourney.data.managers.TokenManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -11,19 +13,26 @@ import net.openid.appauth.AuthorizationService
 import net.openid.appauth.TokenResponse
 import kotlin.coroutines.resume
 
-class AuthRepository(private val context: Context) {
+class AuthRepository(context: Context) {
+
+    private val appContext = context.applicationContext
+    private val authService = AuthorizationService(appContext)
+
+    fun buildSpotifyLoginIntent(): Intent {
+        val authRequest = SpotifyAuthManager.buildAuthRequest()
+        return authService.getAuthorizationRequestIntent(authRequest)
+    }
 
     suspend fun exchangeSpotifyToken(
-        authService: AuthorizationService,
         response: AuthorizationResponse
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            suspendCancellableTokenExchange(authService, response).fold(
+            suspendCancellableTokenExchange(response).fold(
                 onSuccess = { tokenResponse ->
                     val accessToken = tokenResponse.accessToken
                     if (accessToken != null) {
                         TokenManager.saveSpotifyTokens(
-                            context,
+                            appContext,
                             accessToken,
                             tokenResponse.refreshToken
                         )
@@ -43,15 +52,15 @@ class AuthRepository(private val context: Context) {
 
     suspend fun requestGoogleCalendarAccess(): GoogleCalendarAuth.AuthResult {
         return withContext(Dispatchers.IO) {
-            GoogleCalendarAuth.requestCalendarAccess(context)
+            GoogleCalendarAuth.requestCalendarAccess(appContext)
         }
     }
 
     suspend fun onGoogleAccessTokenReceived(accessToken: String): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                TokenManager.saveGoogleTokens(context, accessToken, null)
-                CalendarRepository.syncCalendarLogs(context)
+                TokenManager.saveGoogleTokens(appContext, accessToken, null)
+                CalendarRepository.syncCalendarLogs(appContext)
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
@@ -60,7 +69,6 @@ class AuthRepository(private val context: Context) {
     }
 
     private suspend fun suspendCancellableTokenExchange(
-        authService: AuthorizationService,
         response: AuthorizationResponse
     ): Result<TokenResponse> =
         suspendCancellableCoroutine { cont ->
@@ -74,4 +82,8 @@ class AuthRepository(private val context: Context) {
                 }
             }
         }
+
+    fun dispose() {
+        authService.dispose()
+    }
 }

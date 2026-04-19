@@ -6,7 +6,6 @@ import com.example.digitaljourney.ui.theme.DigitalJourneyTheme
 import android.os.Bundle
 import android.util.Log
 import android.content.Intent
-import android.os.Build
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.NavigationBar
@@ -35,29 +32,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.lifecycle.lifecycleScope
-import com.example.digitaljourney.data.managers.GoogleCalendarAuth
-import com.example.digitaljourney.data.managers.SpotifyAuthManager
-import com.example.digitaljourney.data.repositories.AuthRepository
 
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
-import net.openid.appauth.AuthorizationService
-
-import kotlinx.coroutines.launch
 
 import com.example.digitaljourney.ui.screens.LogListScreen
 import com.example.digitaljourney.ui.screens.LogScreen
 import com.example.digitaljourney.ui.screens.MonthScreen
 import com.example.digitaljourney.ui.screens.SearchScreen
 import com.example.digitaljourney.ui.screens.SettingsScreen
-import com.example.digitaljourney.ui.viewmodel.AppStartupViewModel
+import com.example.digitaljourney.ui.viewmodel.MainActivityViewModel
 import com.example.digitaljourney.ui.viewmodel.DayViewModel
 import com.example.digitaljourney.ui.viewmodel.LogViewModel
 import com.example.digitaljourney.ui.viewmodel.MonthViewModel
@@ -69,42 +60,22 @@ import java.time.ZoneId
 
 class MainActivity : ComponentActivity() {
 
-    // capture the access token once, for the fetch button
-    private lateinit var authService: AuthorizationService
-
     private val authLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val data = result.data ?: run {
-            Log.e("SpotifyAuth", "Auth failed: result data was null")
-            return@registerForActivityResult
-        }
+        val data = result.data
+        val response = data?.let { AuthorizationResponse.fromIntent(it) }
+        val ex = data?.let { AuthorizationException.fromIntent(it) }
 
-        val response = AuthorizationResponse.fromIntent(data)
-        val ex = AuthorizationException.fromIntent(data)
-
-        if (response == null) {
-            Log.e("SpotifyAuth", "Auth failed: $ex")
-            return@registerForActivityResult
-        }
-
-        val settingsViewModel = androidx.lifecycle.ViewModelProvider(this)[SettingsViewModel::class.java]
-
-        lifecycleScope.launch {
-            val authRepository = AuthRepository(this@MainActivity)
-            authRepository.exchangeSpotifyToken(authService, response)
-                .onFailure {
-                    Log.e("SpotifyAuth", "Token exchange failed", it)
-                    settingsViewModel.onSpotifyTokenExchangeFailed(it.message ?: "Spotify auth failed")
-                }
-        }
+        val mainViewModel = androidx.lifecycle.ViewModelProvider(this)[MainActivityViewModel::class.java]
+        mainViewModel.handleSpotifyAuthResult(response, ex)
     }
 
     private val googleAuthorizationLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        val settingsViewModel = androidx.lifecycle.ViewModelProvider(this)[SettingsViewModel::class.java]
-        settingsViewModel.continueGoogleLoginAfterResolution()
+        val mainViewModel = androidx.lifecycle.ViewModelProvider(this)[MainActivityViewModel::class.java]
+        mainViewModel.continueGoogleLoginAfterResolution()
     }
 
     private val notificationOpenLogEvent = mutableStateOf(false)
@@ -122,25 +93,26 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        authService = AuthorizationService(this)
-
         setContent {
-            val context = LocalContext.current
+            val mainViewModel: MainActivityViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 
-            val dayViewModel: DayViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-            val monthViewModel: MonthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-            val searchViewModel: SearchViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-            val settingsViewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-            val appStartupViewModel: AppStartupViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val googleResolution by mainViewModel.googleAuthNeedsResolution
+            val googleAuthError by mainViewModel.googleAuthError
+            val spotifyAuthError by mainViewModel.spotifyAuthError
+            val spotifyLoginIntent by mainViewModel.spotifyLoginIntent
+            val notificationsEnabled by mainViewModel.notificationsEnabled
 
-            val googleResolution by settingsViewModel.googleAuthNeedsResolution
-            val googleAuthError by settingsViewModel.googleAuthError
-            val spotifyAuthError by settingsViewModel.spotifyAuthError
-
-            val darkModeEnabled by settingsViewModel.darkModeEnabled
+            val darkModeEnabled by mainViewModel.darkModeEnabled
 
             LaunchedEffect(Unit) {
-                appStartupViewModel.initializeApp()
+                mainViewModel.initializeApp()
+            }
+
+            LaunchedEffect(spotifyLoginIntent) {
+                spotifyLoginIntent?.let {
+                    authLauncher.launch(it)
+                    mainViewModel.clearSpotifyLoginIntent()
+                }
             }
 
             // making system icons normal in dark mode
@@ -154,10 +126,10 @@ class MainActivity : ComponentActivity() {
                 contract = ActivityResultContracts.RequestPermission()
             ) { isGranted ->
                 if (isGranted) {
-                    settingsViewModel.setNotificationsEnabled(true)
+                    mainViewModel.setNotificationsEnabled(true)
                 } else {
                     Log.w("Notifications", "Notification permission denied")
-                    settingsViewModel.setNotificationsEnabled(false)
+                    mainViewModel.setNotificationsEnabled(false)
                 }
             }
 
@@ -184,9 +156,7 @@ class MainActivity : ComponentActivity() {
                     Screen.Day.route
                 }
 
-
                 val openLogFromNotification by notificationOpenLogEvent
-
 
 
                 LaunchedEffect(openLogFromNotification) {
@@ -202,21 +172,21 @@ class MainActivity : ComponentActivity() {
                         googleAuthorizationLauncher.launch(
                             IntentSenderRequest.Builder(pendingIntent.intentSender).build()
                         )
-                        settingsViewModel.clearGoogleResolution()
+                        mainViewModel.clearGoogleResolution()
                     }
                 }
 
                 LaunchedEffect(googleAuthError) {
                     googleAuthError?.let {
                         Log.e("GoogleAuth", it)
-                        settingsViewModel.clearGoogleAuthError()
+                        mainViewModel.clearGoogleAuthError()
                     }
                 }
 
                 LaunchedEffect(spotifyAuthError) {
                     spotifyAuthError?.let {
                         Log.e("SpotifyAuth", it)
-                        settingsViewModel.clearSpotifyAuthError()
+                        mainViewModel.clearSpotifyAuthError()
                     }
                 }
 
@@ -325,15 +295,46 @@ class MainActivity : ComponentActivity() {
                         }
 
                     ) {
-                        composable(Screen.Day.route) {
+                        composable(
+                            route = Screen.Day.route,
+                            arguments = listOf(
+                                androidx.navigation.navArgument("date") {
+                                    type = androidx.navigation.NavType.StringType
+                                    defaultValue = ""
+                                    nullable = true
+                                },
+                                androidx.navigation.navArgument("highlight") {
+                                    type = androidx.navigation.NavType.StringType
+                                    defaultValue = ""
+                                    nullable = true
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val dayViewModel: DayViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+
+                            val dateArg = backStackEntry.arguments?.getString("date")
+                            val highlightArg = backStackEntry.arguments?.getString("highlight")?.toLongOrNull()
+
+                            LaunchedEffect(dateArg, highlightArg) {
+                                if (!dateArg.isNullOrBlank()) {
+                                    dayViewModel.setDate(java.time.LocalDate.parse(dateArg))
+                                }
+
+                                if (highlightArg != null) {
+                                    dayViewModel.highlightLog(highlightArg)
+                                }
+                            }
+
                             LogListScreen(viewModel = dayViewModel)
                         }
                         composable(Screen.Month.route) {
+                            val monthViewModel: MonthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
                             MonthScreen(
                                 viewModel = monthViewModel,
                                 onDaySelected = { date ->
-                                    dayViewModel.setDate(date)
-                                    navController.navigate(Screen.Day.route)
+                                    navController.navigate(
+                                        Screen.Day.createRoute(date = date.toString())
+                                    )
                                 }
                             )
                         }
@@ -344,25 +345,36 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(Screen.Search.route) {
+                            val searchViewModel: SearchViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
                             SearchScreen(
                                 viewModel = searchViewModel,
                                 onResultClick = { timestamp ->
-                                    dayViewModel.highlightLog(timestamp)
-                                    dayViewModel.setDate(
-                                        Instant.ofEpochMilli(timestamp)
-                                            .atZone(ZoneId.systemDefault())
-                                            .toLocalDate()
+                                    val date = Instant.ofEpochMilli(timestamp)
+                                        .atZone(ZoneId.systemDefault())
+                                        .toLocalDate()
+
+                                    navController.navigate(
+                                        Screen.Day.createRoute(
+                                            date = date.toString(),
+                                            highlight = timestamp
+                                        )
                                     )
-                                    navController.navigate(Screen.Day.route)
                                 }
                             )
                         }
 
                         composable(Screen.Settings.route) {
+                            val settingsViewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
                             SettingsScreen(
                                 viewModel = settingsViewModel,
-                                onAuthenticateSpotify = { startSpotifyLogin() },
-                                onAuthenticateGoogle = { startGoogleLogin(settingsViewModel) },
+                                darkModeEnabled = darkModeEnabled,
+                                notificationsEnabled = notificationsEnabled,
+                                googleAuthError = googleAuthError,
+                                spotifyAuthError = spotifyAuthError,
+                                onAuthenticateSpotify = { mainViewModel.startSpotifyLogin() },
+                                onAuthenticateGoogle = { mainViewModel.startGoogleLogin(this@MainActivity) },
+                                onToggleDarkMode = { enabled -> mainViewModel.setDarkModeEnabled(enabled) },
+                                onToggleNotifications = { enabled -> mainViewModel.setNotificationsEnabled(enabled) },
                                 onRequestNotificationPermission = {
                                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 }
@@ -373,45 +385,16 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        authService.dispose()  // Release the ServiceConnection
-    }
-
-    private fun startSpotifyLogin() {
-        val authRequest = SpotifyAuthManager.buildAuthRequest()
-        val authIntent = authService.getAuthorizationRequestIntent(authRequest)
-        authLauncher.launch(authIntent)
-    }
-
-    private fun startGoogleLogin(settingsViewModel: SettingsViewModel) {
-        lifecycleScope.launch {
-            try {
-                val result = GoogleCalendarAuth.signInAndAuthorize(this@MainActivity)
-                settingsViewModel.onGoogleLoginResult(result)
-            } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
-                Log.w("GoogleAuth", "User canceled or account reauth failed", e)
-                settingsViewModel.onGoogleLoginResult(
-                    GoogleCalendarAuth.AuthResult.Error("Google sign-in was canceled or account reauth failed")
-                )
-            } catch (e: androidx.credentials.exceptions.GetCredentialException) {
-                Log.e("GoogleAuth", "Credential Manager failed", e)
-                settingsViewModel.onGoogleLoginResult(
-                    GoogleCalendarAuth.AuthResult.Error("Credential Manager failed: ${e.message}")
-                )
-            } catch (e: Exception) {
-                Log.e("GoogleAuth", "Unexpected Google sign-in failure", e)
-                settingsViewModel.onGoogleLoginResult(
-                    GoogleCalendarAuth.AuthResult.Error("Unexpected Google sign-in failure")
-                )
-            }
-        }
-    }
 }
 
 sealed class Screen(val route: String, val title: String) {
-    object Day : Screen("day", "Day")
+    object Day : Screen("day?date={date}&highlight={highlight}", "Day") {
+        fun createRoute(date: String? = null, highlight: Long? = null): String {
+            val dateValue = date ?: ""
+            val highlightValue = highlight?.toString() ?: ""
+            return "day?date=$dateValue&highlight=$highlightValue"
+        }
+    }
     object Month : Screen("month", "Month")
     object Log : Screen("log", "Log")
     object Search : Screen("search", "Search")
